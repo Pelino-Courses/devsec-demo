@@ -12,6 +12,8 @@ from .forms import (
     LoginForm,
     ProfileUpdateForm,
     CustomPasswordChangeForm,
+    AvatarUploadForm,
+    DocumentUploadForm,
 )
 from .models import Profile, LoginAttempt
 from .decorators import staff_required
@@ -207,3 +209,47 @@ def updatebio(request):
         userprofile.save()
         return JsonResponse({'status': 'ok', 'bio': bio})
     return JsonResponse({'status': 'error'}, status=400)
+
+
+@login_required
+def avatarupload(request):
+    userprofile, created = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        form = AvatarUploadForm(
+            request.POST,
+            request.FILES,
+            instance=userprofile
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Avatar uploaded successfully.')
+            return redirect('niyitegeka:avatarupload')
+    else:
+        form = AvatarUploadForm(instance=userprofile)
+    return render(
+        request,
+        'niyitegeka/avatar_upload.html',
+        {'form': form, 'userprofile': userprofile}
+    )
+
+
+@login_required
+def documentupload(request):
+    userprofile, created = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        form = DocumentUploadForm(
+            request.POST,
+            request.FILES,
+            instance=userprofile
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Document uploaded successfully.')
+            return redirect('niyitegeka:documentupload')
+    else:
+        form = DocumentUploadForm(instance=userprofile)
+    return render(
+        request,
+        'niyitegeka/document_upload.html',
+        {'form': form, 'userprofile': userprofile}
+    )

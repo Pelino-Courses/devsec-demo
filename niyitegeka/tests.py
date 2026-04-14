@@ -568,3 +568,28 @@ class StoredXSSTest(TestCase):
             response,
             '<script>alert("xss")</script>'
         )
+
+
+class FileUploadTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+        Profile.objects.create(user=self.user)
+        self.client.login(username='peter', password='Secure@1234')
+
+    def test_avatar_upload_page_loads(self):
+        from django.test import Client
+        c = Client()
+        c.login(username='peter', password='Secure@1234')
+        response = c.get('/auth/avatar-upload/')
+        assert response.status_code == 200
+
+    def test_document_upload_page_loads(self):
+        from django.test import Client
+        c = Client()
+        c.login(username='peter', password='Secure@1234')
+        response = c.get('/auth/document-upload/')
+        assert response.status_code == 200

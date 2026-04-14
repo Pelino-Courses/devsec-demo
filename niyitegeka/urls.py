@@ -18,6 +18,8 @@ urlpatterns = [
         name='profiledetail'
     ),
     path('update-bio/', views.updatebio, name='updatebio'),
+    path('avatar-upload/', views.avatarupload, name='avatarupload'),
+    path('document-upload/', views.documentupload, name='documentupload'),
     path(
         'password-reset/',
         auth_views.PasswordResetView.as_view(

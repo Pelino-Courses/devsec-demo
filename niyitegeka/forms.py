@@ -26,5 +26,17 @@ class ProfileUpdateForm(forms.ModelForm):
         fields = ['bio', 'phone']
 
 
+class AvatarUploadForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['avatar']
+
+
+class DocumentUploadForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ['document']
+
+
 class CustomPasswordChangeForm(PasswordChangeForm):
     pass
