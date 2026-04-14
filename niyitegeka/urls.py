@@ -17,6 +17,7 @@ urlpatterns = [
         views.profiledetail,
         name='profiledetail'
     ),
+    path('update-bio/', views.updatebio, name='updatebio'),
     path(
         'password-reset/',
         auth_views.PasswordResetView.as_view(

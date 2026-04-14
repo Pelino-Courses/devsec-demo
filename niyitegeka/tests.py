@@ -331,3 +331,52 @@ class BruteForceProtectionTest(TestCase):
             'password': 'Secure@1234',
         })
         self.assertRedirects(response, reverse('niyitegeka:dashboard'))
+
+
+class CSRFProtectionTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+        Profile.objects.create(user=self.user)
+
+    def test_updatebio_requires_login(self):
+        response = self.client.post(
+            reverse('niyitegeka:updatebio'),
+            {'bio': 'test bio'}
+        )
+        self.assertRedirects(
+            response,
+            '/auth/login/?next=/auth/update-bio/'
+        )
+
+    def test_updatebio_with_login_and_csrf(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.post(
+            reverse('niyitegeka:updatebio'),
+            {'bio': 'new bio'},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_updatebio_updates_correctly(self):
+        self.client.login(username='peter', password='Secure@1234')
+        self.client.post(
+            reverse('niyitegeka:updatebio'),
+            {'bio': 'updated bio'},
+        )
+        updated = Profile.objects.get(user=self.user)
+        self.assertEqual(updated.bio, 'updated bio')
+
+    def test_updatebio_rejects_get_request(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.get(
+            reverse('niyitegeka:updatebio')
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_profile_form_csrf_protected(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.get(reverse('niyitegeka:profile'))
+        self.assertContains(response, 'csrfmiddlewaretoken')

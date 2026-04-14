@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from .forms import (
     RegisterForm,
     LoginForm,
@@ -136,3 +137,16 @@ def profiledetail(request, username):
         'niyitegeka/profile_detail.html',
         {'targetuser': targetuser, 'userprofile': userprofile}
     )
+
+
+@login_required
+def updatebio(request):
+    if request.method == 'POST':
+        bio = request.POST.get('bio', '')
+        userprofile, created = Profile.objects.get_or_create(
+            user=request.user
+        )
+        userprofile.bio = bio
+        userprofile.save()
+        return JsonResponse({'status': 'ok', 'bio': bio})
+    return JsonResponse({'status': 'error'}, status=400)
