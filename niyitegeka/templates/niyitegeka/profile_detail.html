@@ -1,0 +1,35 @@
+{% extends "niyitegeka/base.html" %}
+
+{% block title %}Profile Detail{% endblock %}
+
+{% block content %}
+<h2>Profile Detail</h2>
+
+<p style="color: #666; margin-bottom: 20px;">
+    <strong>Username:</strong> {{ targetuser.username }}<br>
+    <strong>Email:</strong> {{ targetuser.email }}<br>
+    <strong>Joined:</strong> {{ targetuser.date_joined|date:"F j, Y" }}
+</p>
+
+<h4 style="margin-bottom: 15px; color: #1a1a2e;">Bio</h4>
+<p style="color: #444;">
+    {% if userprofile.bio %}
+        {{ userprofile.bio }}
+    {% else %}
+        No bio provided.
+    {% endif %}
+</p>
+
+<h4 style="margin-bottom: 15px; color: #1a1a2e;">Phone</h4>
+<p style="color: #444;">
+    {% if userprofile.phone %}
+        {{ userprofile.phone }}
+    {% else %}
+        No phone provided.
+    {% endif %}
+</p>
+
+<div class="link" style="margin-top: 25px;">
+    <a href="/auth/dashboard/">Back to Dashboard</a>
+</div>
+{% endblock %}
