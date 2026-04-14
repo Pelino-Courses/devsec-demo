@@ -3,7 +3,7 @@ from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Profile
+from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
 
 
 User = get_user_model()
@@ -359,3 +359,83 @@ class PasswordResetFlowTests(TestCase):
 		self.assertRedirects(response, reverse('webwi:password_reset_complete'))
 		self.user.refresh_from_db()
 		self.assertTrue(self.user.check_password('BrandNewSafePass123!'))
+
+
+class BruteForceProtectionTests(TestCase):
+	"""Verify that the login view enforces account-level lockout.
+
+	After MAX_FAILED_ATTEMPTS consecutive failures the account is locked
+	for LOCKOUT_DURATION; legitimate users are unaffected across accounts.
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user = User.objects.create_user(
+			username='targetuser',
+			email='target@example.com',
+			password=self.password,
+		)
+
+	def _fail_login(self, username='targetuser', times=1):
+		for _ in range(times):
+			self.client.post(
+				reverse('webwi:login'),
+				{'username': username, 'password': 'wrongpassword'},
+			)
+
+	def test_normal_login_succeeds(self):
+		response = self.client.post(
+			reverse('webwi:login'),
+			{'username': 'targetuser', 'password': self.password},
+		)
+		self.assertRedirects(response, reverse('webwi:dashboard'), fetch_redirect_response=False)
+
+	def test_failed_logins_below_threshold_do_not_lock_account(self):
+		self._fail_login(times=MAX_FAILED_ATTEMPTS - 1)
+		response = self.client.post(
+			reverse('webwi:login'),
+			{'username': 'targetuser', 'password': self.password},
+		)
+		self.assertRedirects(response, reverse('webwi:dashboard'), fetch_redirect_response=False)
+
+	def test_account_locked_after_max_failed_attempts(self):
+		self._fail_login(times=MAX_FAILED_ATTEMPTS)
+		response = self.client.post(
+			reverse('webwi:login'),
+			{'username': 'targetuser', 'password': self.password},
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'locked')
+
+	def test_locked_account_cannot_login_with_correct_password(self):
+		self._fail_login(times=MAX_FAILED_ATTEMPTS)
+		response = self.client.post(
+			reverse('webwi:login'),
+			{'username': 'targetuser', 'password': self.password},
+		)
+		self.assertNotEqual(response.status_code, 302)
+
+	def test_attempt_counter_resets_on_successful_login(self):
+		self._fail_login(times=MAX_FAILED_ATTEMPTS - 1)
+		self.client.post(
+			reverse('webwi:login'),
+			{'username': 'targetuser', 'password': self.password},
+		)
+		self.assertEqual(LoginAttempt.objects.filter(username='targetuser').count(), 0)
+
+	def test_lockout_does_not_affect_other_accounts(self):
+		User.objects.create_user(
+			username='innocent',
+			email='innocent@example.com',
+			password=self.password,
+		)
+		self._fail_login(username='targetuser', times=MAX_FAILED_ATTEMPTS)
+		response = self.client.post(
+			reverse('webwi:login'),
+			{'username': 'innocent', 'password': self.password},
+		)
+		self.assertRedirects(response, reverse('webwi:dashboard'), fetch_redirect_response=False)
+
+	def test_each_failed_attempt_is_recorded(self):
+		self._fail_login(times=3)
+		self.assertEqual(LoginAttempt.objects.filter(username='targetuser').count(), 3)

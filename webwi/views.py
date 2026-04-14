@@ -17,7 +17,7 @@ from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
 
 from .forms import LoginForm, PasswordResetRequestForm, PasswordResetSetForm, PasswordUpdateForm, ProfileForm, RegistrationForm
-from .models import Profile
+from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
 
 
 class PrivilegedAccessMixin(LoginRequiredMixin):
@@ -68,6 +68,31 @@ class UserLoginView(LoginView):
     form_class = LoginForm
     template_name = 'webwi/login.html'
     extra_context = {'page_title': 'Welcome Back'}
+
+    def post(self, request, *args, **kwargs):
+        # Check lockout before processing credentials so the authentication
+        # backend is never called while the account is in cooldown.
+        username = request.POST.get('username', '').strip()
+        if username and LoginAttempt.is_locked(username):
+            form = self.get_form()
+            form.add_error(
+                None,
+                f'Too many failed attempts. This account is locked for 15 minutes.',
+            )
+            return self.render_to_response(self.get_context_data(form=form))
+        return super().post(request, *args, **kwargs)
+
+    def form_invalid(self, form):
+        # Record the failed attempt so the counter advances toward lockout.
+        username = form.data.get('username', '').strip()
+        if username:
+            LoginAttempt.record(username, self.request.META.get('REMOTE_ADDR'))
+        return super().form_invalid(form)
+
+    def form_valid(self, form):
+        # Successful login resets the counter for this account.
+        LoginAttempt.clear(form.cleaned_data.get('username', ''))
+        return super().form_valid(form)
 
 
 class UserLogoutView(LogoutView):
