@@ -1,0 +1,55 @@
+{% extends 'olivier/base.html' %}
+
+{% block title %}Admin Dashboard - MUNYABUGINGO{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1>User Management</h1>
+    <div style="background: rgba(129, 140, 248, 0.2); color: #818cf8; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600;">
+        Total Users: {{ all_users.count }}
+    </div>
+</div>
+
+<div class="glass-card" style="padding: 0; overflow: hidden; border-radius: 12px;">
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid var(--glass-border);">
+                <th style="padding: 1.25rem 1.5rem; color: #818cf8;">Username</th>
+                <th style="padding: 1.25rem 1.5rem; color: #818cf8;">Email</th>
+                <th style="padding: 1.25rem 1.5rem; color: #818cf8;">Date Joined</th>
+                <th style="padding: 1.25rem 1.5rem; color: #818cf8;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in all_users %}
+            <tr style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 1.25rem 1.5rem;">
+                    <div style="font-weight: 600;">{{ user.username }}</div>
+                    {% if user.is_superuser %}
+                        <span style="font-size: 0.7rem; background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 0.1rem 0.4rem; border-radius: 4px;">Superuser</span>
+                    {% elif user.is_staff %}
+                        <span style="font-size: 0.7rem; background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 0.1rem 0.4rem; border-radius: 4px;">Staff</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1.25rem 1.5rem; color: #94a3b8;">{{ user.email }}</td>
+                <td style="padding: 1.25rem 1.5rem; color: #94a3b8;">{{ user.date_joined|date:"M d, Y" }}</td>
+                <td style="padding: 1.25rem 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 8px; height: 8px; border-radius: 50%; background: #22c55e;"></div>
+                        <span style="font-size: 0.9rem;">Active</span>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="padding: 3rem; text-align: center; color: #64748b;">No users registered yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-top: 2rem;">
+    <a href="{% url 'Munyabugingo:dashboard' %}" class="btn" style="background: rgba(255, 255, 255, 0.1);">Back to My Dashboard</a>
+</div>
+{% endblock %}
