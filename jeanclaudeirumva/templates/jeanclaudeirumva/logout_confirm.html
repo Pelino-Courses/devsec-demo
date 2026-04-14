@@ -1,0 +1,17 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Logout{% endblock %}
+
+{% block content %}
+<h2>Logout</h2>
+<p>Are you sure you want to logout?</p>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Yes, Logout</button>
+</form>
+
+<div style="margin-top: 15px;">
+    <a href="{% url 'jeanclaudeirumva:dashboard' %}">Cancel, go back to Dashboard</a>
+</div>
+{% endblock %}
