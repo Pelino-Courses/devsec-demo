@@ -126,3 +126,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/tresor/login/'
 LOGIN_REDIRECT_URL = '/tresor/dashboard/'
 LOGOUT_REDIRECT_URL = '/tresor/login/'
+
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend'
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@devsec-demo.local')
+PASSWORD_RESET_TIMEOUT = 3600

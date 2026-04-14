@@ -1,6 +1,10 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.core import mail
 
 
 class RegistrationTests(TestCase):
@@ -269,3 +273,83 @@ class IDORProfileEditTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.user_b.profile.refresh_from_db()
         self.assertNotEqual(self.user_b.profile.bio, 'Injected bio')
+
+
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='resetuser',
+            email='resetuser@test.com',
+            password='Securepass123!',
+        )
+
+    def test_reset_request_page_loads(self):
+        response = self.client.get(reverse('tresor:password_reset'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_reset_sent_page_loads(self):
+        response = self.client.get(reverse('tresor:password_reset_done'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_valid_email_sends_reset_email(self):
+        response = self.client.post(reverse('tresor:password_reset'), {
+            'email': 'resetuser@test.com',
+        })
+        self.assertRedirects(response, reverse('tresor:password_reset_done'))
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_nonexistent_email_does_not_send_email(self):
+        response = self.client.post(reverse('tresor:password_reset'), {
+            'email': 'nobody@test.com',
+        })
+        self.assertRedirects(response, reverse('tresor:password_reset_done'))
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_nonexistent_email_gives_same_response_as_valid(self):
+        valid_response = self.client.post(reverse('tresor:password_reset'), {
+            'email': 'resetuser@test.com',
+        })
+        self.client.get('/')
+        invalid_response = self.client.post(reverse('tresor:password_reset'), {
+            'email': 'nobody@test.com',
+        })
+        self.assertEqual(valid_response.status_code, invalid_response.status_code)
+        self.assertEqual(valid_response['Location'], invalid_response['Location'])
+
+    def test_valid_token_confirms_reset_page(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        response = self.client.get(
+            reverse('tresor:password_reset_confirm', kwargs={'uidb64': uid, 'token': token}),
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Set a new password')
+
+    def test_invalid_token_shows_error(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        response = self.client.get(
+            reverse('tresor:password_reset_confirm', kwargs={'uidb64': uid, 'token': 'invalid-token'})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'invalid or has expired')
+
+    def test_successful_reset_changes_password(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        self.client.get(
+            reverse('tresor:password_reset_confirm', kwargs={'uidb64': uid, 'token': token}),
+            follow=True,
+        )
+        confirm_url = reverse('tresor:password_reset_confirm', kwargs={'uidb64': uid, 'token': 'set-password'})
+        response = self.client.post(confirm_url, {
+            'new_password1': 'NewSecure789!',
+            'new_password2': 'NewSecure789!',
+        })
+        self.assertRedirects(response, reverse('tresor:password_reset_complete'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewSecure789!'))
+
+    def test_reset_complete_page_loads(self):
+        response = self.client.get(reverse('tresor:password_reset_complete'))
+        self.assertEqual(response.status_code, 200)
