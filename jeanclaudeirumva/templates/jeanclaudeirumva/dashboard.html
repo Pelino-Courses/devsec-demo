@@ -1,0 +1,64 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Welcome, {{ user.username }}!</h2>
+<p>You are successfully logged in to your secure dashboard.</p>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <h3>Your Account Info</h3>
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+</div>
+
+<!-- AJAX form with CSRF protection -->
+<div style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <h3>Update Email (AJAX)</h3>
+    <p style="font-size: 0.9em; color: #666;">This form uses AJAX with CSRF token protection.</p>
+    <div class="form-group">
+        <label>New Email</label>
+        <input type="email" id="emailInput" value="{{ user.email }}" />
+    </div>
+    <button onclick="updateEmail()">Update Email</button>
+    <p id="ajaxMessage" style="margin-top: 10px;"></p>
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'jeanclaudeirumva:profile' %}">View Profile</a> |
+    <a href="{% url 'jeanclaudeirumva:password_change' %}">Change Password</a>
+</div>
+
+<form method="post" action="{% url 'jeanclaudeirumva:logout' %}" style="margin-top: 20px;">
+    {% csrf_token %}
+    <button type="submit" style="background-color: #dc3545;">Logout</button>
+</form>
+
+<script>
+function updateEmail() {
+    const email = document.getElementById('emailInput').value;
+    const csrfToken = '{{ csrf_token }}';
+
+    fetch("{% url 'jeanclaudeirumva:update_profile_ajax' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken,
+        },
+        body: 'email=' + encodeURIComponent(email),
+    })
+    .then(response => response.json())
+    .then(data => {
+        const msg = document.getElementById('ajaxMessage');
+        if (data.success) {
+            msg.style.color = 'green';
+            msg.textContent = 'Email updated successfully!';
+        } else {
+            msg.style.color = 'red';
+            msg.textContent = data.error;
+        }
+    });
+}
+</script>
+{% endblock %}
