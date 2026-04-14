@@ -1,5 +1,5 @@
 """
-URL configuration for devsec_demo project.
+URL configuration for assignment project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/6.0/topics/http/urls/
@@ -15,8 +15,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.views.generic.base import RedirectView
 
 urlpatterns = [
+    path('', RedirectView.as_view(url='auth/login/', permanent=False)),
     path('admin/', admin.site.urls),
+    path('auth/', include('assignment.mucyo_aime_maxime.urls')),
 ]
