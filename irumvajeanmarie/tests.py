@@ -4,7 +4,9 @@ from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from .models import Profile
+from django.utils import timezone
+from datetime import timedelta
+from .models import Profile, LoginAttempt, AccountLockout
 
 
 class RegistrationTestCase(TestCase):
@@ -285,3 +287,60 @@ class PasswordResetTestCase(TestCase):
             follow=True
         )
         self.assertEqual(response.status_code, 200)
+
+
+class BruteForceTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+
+    def test_normal_login_works_and_records_attempt(self):
+        response = self.client.post(reverse('irumvajeanmarie:login'), {
+            'username': 'testuser',
+            'password': 'StrongPass123!'
+        })
+        self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
+        self.assertTrue(LoginAttempt.objects.filter(username='testuser', was_successful=True).exists())
+
+    def test_failed_login_records_attempt(self):
+        response = self.client.post(reverse('irumvajeanmarie:login'), {
+            'username': 'testuser',
+            'password': 'WrongPassword123!'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(LoginAttempt.objects.filter(username='testuser', was_successful=False).exists())
+
+    def test_account_lockout_after_five_failures(self):
+        for _ in range(5):
+            self.client.post(reverse('irumvajeanmarie:login'), {
+                'username': 'testuser',
+                'password': 'WrongPassword123!'
+            })
+        self.assertTrue(AccountLockout.objects.filter(username='testuser').exists())
+
+    def test_locked_account_cannot_login_with_correct_password(self):
+        AccountLockout.objects.create(
+            username='testuser', 
+            locked_until=timezone.now() + timedelta(minutes=15)
+        )
+        response = self.client.post(reverse('irumvajeanmarie:login'), {
+            'username': 'testuser',
+            'password': 'StrongPass123!'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Account is locked')
+
+    def test_lockout_expires(self):
+        AccountLockout.objects.create(
+            username='testuser', 
+            locked_until=timezone.now() - timedelta(minutes=1)
+        )
+        response = self.client.post(reverse('irumvajeanmarie:login'), {
+            'username': 'testuser',
+            'password': 'StrongPass123!'
+        })
+        self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
+        self.assertFalse(AccountLockout.objects.filter(username='testuser').exists())

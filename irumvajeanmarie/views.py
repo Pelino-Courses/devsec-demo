@@ -3,9 +3,20 @@ from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponseForbidden
+from django.utils import timezone
+from datetime import timedelta
 from .forms import RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm
-from .models import Profile
+from .models import Profile, LoginAttempt, AccountLockout
 from .decorators import instructor_required, admin_required
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
 
 
 def register_view(request):
@@ -27,14 +38,52 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('irumvajeanmarie:dashboard')
     if request.method == 'POST':
+        username = request.POST.get('username')
+        ip_address = get_client_ip(request)
+
+        if username:
+            try:
+                lockout = AccountLockout.objects.get(username=username)
+                if lockout.locked_until > timezone.now():
+                    messages.error(request, 'Account is locked due to too many failed login attempts. Please try again later.')
+                    form = LoginForm(request, data=request.POST)
+                    return render(request, 'irumvajeanmarie/login.html', {'form': form})
+                else:
+                    lockout.delete()
+            except AccountLockout.DoesNotExist:
+                pass
+
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+
+            if username:
+                LoginAttempt.objects.create(username=username, ip_address=ip_address, was_successful=True)
+                AccountLockout.objects.filter(username=username).delete()
+                LoginAttempt.objects.filter(username=username, was_successful=False).delete()
+
             messages.success(request, f'Welcome back, {user.username}!')
             return redirect('irumvajeanmarie:dashboard')
         else:
-            messages.error(request, 'Invalid username or password.')
+            if username:
+                LoginAttempt.objects.create(username=username, ip_address=ip_address, was_successful=False)
+                recent_failures = LoginAttempt.objects.filter(
+                    username=username,
+                    was_successful=False,
+                    timestamp__gte=timezone.now() - timedelta(minutes=15)
+                ).count()
+
+                if recent_failures >= 5:
+                    AccountLockout.objects.update_or_create(
+                        username=username,
+                        defaults={'locked_until': timezone.now() + timedelta(minutes=15)}
+                    )
+                    messages.error(request, 'Account is locked due to too many failed login attempts. Please try again later.')
+                else:
+                    messages.error(request, 'Invalid username or password.')
+            else:
+                messages.error(request, 'Invalid username or password.')
     else:
         form = LoginForm()
     return render(request, 'irumvajeanmarie/login.html', {'form': form})

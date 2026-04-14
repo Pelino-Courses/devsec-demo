@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class Profile(models.Model):
@@ -33,3 +34,21 @@ class Profile(models.Model):
 
     def is_student(self):
         return self.role == self.ROLE_STUDENT
+
+
+class LoginAttempt(models.Model):
+    username = models.CharField(max_length=150)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    was_successful = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.username} - {'Success' if self.was_successful else 'Failure'} at {self.timestamp}"
+
+
+class AccountLockout(models.Model):
+    username = models.CharField(max_length=150, unique=True)
+    locked_until = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.username} locked until {self.locked_until}"
