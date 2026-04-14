@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}Login History - Antoine{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h2 class="mb-4">Your Login History</h2>
+    
+    {% if logins %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>IP Address</th>
+                        <th>Browser / Device</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for login in logins %}
+                        <tr>
+                            <td>{{ login.login_time|date:"F d, Y H:i:s" }}</td>
+                            <td><code>{{ login.ip_address }}</code></td>
+                            <td style="font-size: 0.9rem;">{{ login.user_agent|truncatewords:5 }}</td>
+                            <td>
+                                {% if login.success %}
+                                    <span class="badge bg-success">Success</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% if login.failure_reason %}
+                                        <br><small>{{ login.failure_reason }}</small>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No login history found.
+        </div>
+    {% endif %}
+    
+    <a href="{% url 'antoine:dashboard' %}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+</div>
+{% endblock %}
