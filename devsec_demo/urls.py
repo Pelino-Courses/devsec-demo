@@ -15,8 +15,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
+
+# Custom 403 handler — renders a styled page instead of Django's plain default
+handler403 = 'mupenz_fulgence.views.permission_denied_view'
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('auth/', include('mupenz_fulgence.urls')),
 ]
+
+
