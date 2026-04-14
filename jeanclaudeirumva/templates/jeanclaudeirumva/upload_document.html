@@ -1,0 +1,30 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Upload Document{% endblock %}
+
+{% block content %}
+<h2>Upload Document</h2>
+<p style="font-size: 0.9em; color: #666;">
+    Allowed formats: PDF, DOC, DOCX, TXT. Maximum size: 2MB.
+</p>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-group">
+        <label>{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+            <ul class="errorlist">
+                {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit">Upload Document</button>
+</form>
+<div style="margin-top: 15px;">
+    <a href="{% url 'jeanclaudeirumva:profile' %}">Back to Profile</a>
+</div>
+{% endblock %}

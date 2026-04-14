@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+     'jeanclaudeirumva',
 ]
 
 MIDDLEWARE = [
@@ -119,3 +120,29 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+# ─── FILE UPLOAD SETTINGS ─────────────────────────────────────────────────────
+
+
+# Media files storage
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Maximum upload size: 2MB
+MAX_UPLOAD_SIZE = 2 * 1024 * 1024
+
+# Allowed avatar extensions
+ALLOWED_AVATAR_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
+
+# Allowed document extensions
+ALLOWED_DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt']
+
+# Allowed MIME types for avatars
+ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif']
+
+# Allowed MIME types for documents
+ALLOWED_DOCUMENT_MIME_TYPES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+]
