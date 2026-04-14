@@ -1,0 +1,20 @@
+{% extends "eduard/base.html" %} {% block title %}Login{% endblock %} {% block content %}
+<h1>Login</h1>
+<form method="post" novalidate>
+  {% csrf_token %} {% if request.GET.next %}<input
+    type="hidden"
+    name="next"
+    value="{{ request.GET.next }}"
+  />{% endif %} {% for field in form %}
+  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {{ field }} {% if field.errors %}
+  <ul class="errorlist">
+    {% for e in field.errors %}
+    <li>{{ e }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %} {% endfor %}
+  <button type="submit">Login</button>
+</form>
+<p class="link-row">No account yet? <a href="{% url 'eduard:register' %}">Register</a></p>
+{% endblock %}
