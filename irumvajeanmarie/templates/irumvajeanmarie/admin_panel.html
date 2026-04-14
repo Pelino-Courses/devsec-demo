@@ -1,0 +1,34 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Admin Panel - UAS{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Admin Panel</h2>
+  <p>Welcome, {{ request.user.username }}. You have full admin access.</p>
+  <hr>
+  <h3>All Users</h3>
+  {% if profiles %}
+    <table border="1" cellpadding="8" style="width:100%; border-collapse:collapse;">
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Member Since</th>
+      </tr>
+      {% for profile in profiles %}
+        <tr>
+          <td>{{ profile.user.username }}</td>
+          <td>{{ profile.user.email }}</td>
+          <td>{{ profile.role }}</td>
+          <td>{{ profile.user.date_joined|date:"F d, Y" }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>No users found.</p>
+  {% endif %}
+  <br>
+  <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn">Back to Dashboard</a>
+</div>
+{% endblock %}
