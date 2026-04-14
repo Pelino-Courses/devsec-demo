@@ -1,26 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Profile</title>
-</head>
-<body>
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card">
     <h1>My Profile</h1>
+    <p class="lead">Manage both your account details and public profile in one place.</p>
 
-    {% if messages %}
-        <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-
-    <form method="post">
+    <form method="post" novalidate>
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Save Profile</button>
-    </form>
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
 
-    <p><a href="{% url 'webwi:dashboard' %}">Back to dashboard</a></p>
-</body>
-</html>
+        <div class="grid">
+            <div class="field">
+                <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                {{ form.first_name }}
+                {{ form.first_name.errors }}
+            </div>
+
+            <div class="field">
+                <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                {{ form.last_name }}
+                {{ form.last_name.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>
+                {{ form.display_name }}
+                {{ form.display_name.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.bio.id_for_label }}">{{ form.bio.label }}</label>
+                {{ form.bio }}
+                {{ form.bio.errors }}
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" type="submit">Save profile</button>
+            <a class="btn-ghost" href="{% url 'webwi:dashboard' %}">Back to dashboard</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

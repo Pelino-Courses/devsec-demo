@@ -13,6 +13,7 @@ class UserRegistrationView(FormView):
 	form_class = RegistrationForm
 	template_name = 'webwi/register.html'
 	success_url = reverse_lazy('webwi:login')
+	extra_context = {'page_title': 'Create Account'}
 
 	def form_valid(self, form):
 		form.save()
@@ -23,6 +24,7 @@ class UserRegistrationView(FormView):
 class UserLoginView(LoginView):
 	form_class = LoginForm
 	template_name = 'webwi/login.html'
+	extra_context = {'page_title': 'Welcome Back'}
 
 
 class UserLogoutView(LogoutView):
@@ -31,16 +33,19 @@ class UserLogoutView(LogoutView):
 
 class DashboardView(LoginRequiredMixin, TemplateView):
 	template_name = 'webwi/dashboard.html'
+	extra_context = {'page_title': 'Dashboard'}
 
 
 class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
 	form_class = PasswordUpdateForm
 	template_name = 'webwi/password_change.html'
 	success_url = reverse_lazy('webwi:password_change_done')
+	extra_context = {'page_title': 'Change Password'}
 
 
 class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
 	template_name = 'webwi/password_change_done.html'
+	extra_context = {'page_title': 'Password Updated'}
 
 
 class ProfileView(LoginRequiredMixin, UpdateView):
@@ -48,12 +53,19 @@ class ProfileView(LoginRequiredMixin, UpdateView):
 	form_class = ProfileForm
 	template_name = 'webwi/profile.html'
 	success_url = reverse_lazy('webwi:profile')
+	extra_context = {'page_title': 'My Profile'}
 
 	def get_object(self, queryset=None):
 		profile, _ = Profile.objects.get_or_create(user=self.request.user)
 		return profile
 
+	def get_form_kwargs(self):
+		kwargs = super().get_form_kwargs()
+		kwargs['user'] = self.request.user
+		return kwargs
+
 	def form_valid(self, form):
+		form.save(user=self.request.user)
 		messages.success(self.request, 'Your profile was updated successfully.')
 		return super().form_valid(form)
 

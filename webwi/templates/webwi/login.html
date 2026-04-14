@@ -1,26 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-</head>
-<body>
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card auth-card">
     <h1>Login</h1>
+    <p class="lead">Access your account and continue to your secure dashboard.</p>
 
-    {% if messages %}
-        <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-
-    <form method="post">
+    <form method="post" novalidate>
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Login</button>
-    </form>
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
 
-    <p><a href="{% url 'webwi:register' %}">Create a new account</a></p>
-</body>
-</html>
+        <div class="field">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+            {{ form.username.errors }}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+            {{ form.password }}
+            {{ form.password.errors }}
+        </div>
+
+        <div class="actions">
+            <button class="btn" type="submit">Login</button>
+            <a class="btn-ghost" href="{% url 'webwi:register' %}">Create account</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

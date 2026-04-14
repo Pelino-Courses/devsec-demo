@@ -1,21 +1,32 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Dashboard</title>
-</head>
-<body>
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card">
     <h1>Authenticated Dashboard</h1>
-    <p>Welcome, {{ request.user.username }}.</p>
-    <ul>
-        <li><a href="{% url 'webwi:profile' %}">Profile</a></li>
-        <li><a href="{% url 'webwi:password_change' %}">Change password</a></li>
-        <li>
-            <form method="post" action="{% url 'webwi:logout' %}">
-                {% csrf_token %}
-                <button type="submit">Logout</button>
-            </form>
-        </li>
-    </ul>
-</body>
-</html>
+    <p class="lead">Hello {{ request.user.get_full_name|default:request.user.username }}, your session is active.</p>
+
+    <div class="grid">
+        <div class="field">
+            <label>Username</label>
+            <input class="input" value="{{ request.user.username }}" readonly>
+        </div>
+        <div class="field">
+            <label>Email</label>
+            <input class="input" value="{{ request.user.email|default:'No email set yet' }}" readonly>
+        </div>
+    </div>
+
+    <div class="quick-links">
+        <a href="{% url 'webwi:profile' %}">Update profile details</a>
+        <a href="{% url 'webwi:password_change' %}">Change account password</a>
+        <a href="/admin/">Open Django admin</a>
+    </div>
+
+    <div class="actions">
+        <form class="logout-inline" method="post" action="{% url 'webwi:logout' %}">
+            {% csrf_token %}
+            <button class="btn" type="submit">Logout</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
