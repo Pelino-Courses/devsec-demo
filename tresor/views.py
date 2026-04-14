@@ -1,11 +1,16 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from .decorators import instructor_required
 from .forms import RegistrationForm, LoginForm, ProfileUpdateForm
+
+
+def _is_instructor(user):
+    return user.groups.filter(name='instructor').exists() or user.is_staff
 
 
 def register(request):
@@ -49,11 +54,7 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    is_instructor = (
-        request.user.groups.filter(name='instructor').exists()
-        or request.user.is_staff
-    )
-    return render(request, 'tresor/dashboard.html', {'is_instructor': is_instructor})
+    return render(request, 'tresor/dashboard.html', {'is_instructor': _is_instructor(request.user)})
 
 
 @login_required
@@ -66,6 +67,34 @@ def profile(request):
             return redirect('tresor:profile')
     else:
         form = ProfileUpdateForm(instance=request.user.profile, user=request.user)
+    return render(request, 'tresor/profile.html', {'form': form})
+
+
+@login_required
+def profile_view(request, username):
+    target_user = get_object_or_404(User, username=username)
+
+    if request.user != target_user and not _is_instructor(request.user):
+        raise PermissionDenied
+
+    return render(request, 'tresor/profile_view.html', {'target_user': target_user})
+
+
+@login_required
+def profile_edit(request, username):
+    target_user = get_object_or_404(User, username=username)
+
+    if request.user != target_user:
+        raise PermissionDenied
+
+    if request.method == 'POST':
+        form = ProfileUpdateForm(request.POST, instance=target_user.profile, user=target_user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated.')
+            return redirect('tresor:profile_view', username=target_user.username)
+    else:
+        form = ProfileUpdateForm(instance=target_user.profile, user=target_user)
     return render(request, 'tresor/profile.html', {'form': form})
 
 

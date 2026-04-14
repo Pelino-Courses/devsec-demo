@@ -10,7 +10,8 @@
 {% endif %}
 </p>
 <ul>
-    <li><a href="{% url 'tresor:profile' %}">View / edit profile</a></li>
+    <li><a href="{% url 'tresor:profile_view' username=user.username %}">View profile</a></li>
+    <li><a href="{% url 'tresor:profile_edit' username=user.username %}">Edit profile</a></li>
     <li><a href="{% url 'tresor:password_change' %}">Change password</a></li>
     {% if is_instructor %}
     <li><a href="{% url 'tresor:instructor_dashboard' %}">Instructor area — view all users</a></li>

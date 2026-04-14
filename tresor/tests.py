@@ -176,3 +176,96 @@ class RBACTests(TestCase):
         self.client.login(username='instructor1', password='Securepass123!')
         response = self.client.get(reverse('tresor:instructor_dashboard'))
         self.assertContains(response, 'student1')
+
+
+class IDORProfileViewTests(TestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user(
+            username='usera', password='Securepass123!'
+        )
+        self.user_b = User.objects.create_user(
+            username='userb', password='Securepass123!'
+        )
+        self.instructor_group, _ = Group.objects.get_or_create(name='instructor')
+        self.instructor = User.objects.create_user(
+            username='instructor1', password='Securepass123!'
+        )
+        self.instructor.groups.add(self.instructor_group)
+
+    def test_user_can_view_own_profile(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_view', kwargs={'username': 'usera'}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_user_cannot_view_other_users_profile(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_view', kwargs={'username': 'userb'}))
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_view_profile(self):
+        response = self.client.get(reverse('tresor:profile_view', kwargs={'username': 'usera'}))
+        self.assertEqual(response.status_code, 302)
+
+    def test_nonexistent_profile_returns_404(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_view', kwargs={'username': 'nobody'}))
+        self.assertEqual(response.status_code, 404)
+
+    def test_instructor_can_view_any_profile(self):
+        self.client.login(username='instructor1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_view', kwargs={'username': 'usera'}))
+        self.assertEqual(response.status_code, 200)
+
+
+class IDORProfileEditTests(TestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user(
+            username='usera', password='Securepass123!'
+        )
+        self.user_b = User.objects.create_user(
+            username='userb', password='Securepass123!'
+        )
+        self.instructor_group, _ = Group.objects.get_or_create(name='instructor')
+        self.instructor = User.objects.create_user(
+            username='instructor1', password='Securepass123!'
+        )
+        self.instructor.groups.add(self.instructor_group)
+
+    def test_user_can_edit_own_profile(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_edit', kwargs={'username': 'usera'}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_user_cannot_edit_other_users_profile(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_edit', kwargs={'username': 'userb'}))
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_cannot_edit_other_users_profile(self):
+        self.client.login(username='instructor1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_edit', kwargs={'username': 'usera'}))
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_cannot_edit_profile(self):
+        response = self.client.get(reverse('tresor:profile_edit', kwargs={'username': 'usera'}))
+        self.assertEqual(response.status_code, 302)
+
+    def test_post_edit_saves_own_profile(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.post(
+            reverse('tresor:profile_edit', kwargs={'username': 'usera'}),
+            {'bio': 'My updated bio', 'first_name': 'User', 'last_name': 'A', 'email': 'usera@test.com'},
+        )
+        self.assertRedirects(response, reverse('tresor:profile_view', kwargs={'username': 'usera'}))
+        self.user_a.profile.refresh_from_db()
+        self.assertEqual(self.user_a.profile.bio, 'My updated bio')
+
+    def test_post_cannot_edit_other_users_profile(self):
+        self.client.login(username='usera', password='Securepass123!')
+        response = self.client.post(
+            reverse('tresor:profile_edit', kwargs={'username': 'userb'}),
+            {'bio': 'Injected bio', 'first_name': 'Hacked', 'last_name': 'B', 'email': 'b@test.com'},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.user_b.profile.refresh_from_db()
+        self.assertNotEqual(self.user_b.profile.bio, 'Injected bio')
