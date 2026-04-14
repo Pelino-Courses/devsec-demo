@@ -17,7 +17,6 @@ from django.contrib.auth.views import (
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import redirect
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
@@ -186,7 +185,6 @@ class UserPasswordResetCompleteView(PasswordResetCompleteView):
     extra_context = {'page_title': 'Password Reset Complete'}
 
 
-@csrf_exempt  # INSECURE: CSRF protection disabled on a state-changing endpoint
 @login_required
 @require_POST
 def quick_display_name_update(request):

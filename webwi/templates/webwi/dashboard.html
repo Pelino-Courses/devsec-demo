@@ -47,12 +47,28 @@
 </section>
 
 <script>
-/* INSECURE: fetch sends no X-CSRFToken header — CSRF protection is bypassed */
+/* Read the CSRF token from the cookie Django sets on every page load. */
+function getCsrfToken() {
+    var name = 'csrftoken=';
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.indexOf(name) === 0) {
+            return c.substring(name.length);
+        }
+    }
+    return '';
+}
+
 document.getElementById('display-name-save').addEventListener('click', function () {
     var name = document.getElementById('display-name-input').value;
     fetch('{% url "webwi:quick_display_name_update" %}', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()   /* required by Django's CSRF middleware */
+        },
         body: JSON.stringify({ display_name: name })
     })
     .then(function (r) { return r.json(); })

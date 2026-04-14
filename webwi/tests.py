@@ -1,6 +1,8 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 
 from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
@@ -439,3 +441,75 @@ class BruteForceProtectionTests(TestCase):
 	def test_each_failed_attempt_is_recorded(self):
 		self._fail_login(times=3)
 		self.assertEqual(LoginAttempt.objects.filter(username='targetuser').count(), 3)
+
+
+class CSRFProtectionTests(TestCase):
+	"""Verify that the AJAX display-name endpoint enforces CSRF protection.
+
+	The standard Django test client bypasses CSRF by default.  These tests
+	use Client(enforce_csrf_checks=True) to exercise the real middleware path,
+	confirming that:
+	  - Requests without a valid token are rejected (403).
+	  - Requests that include the correct X-CSRFToken header succeed.
+	  - Unauthenticated requests are rejected regardless of CSRF state.
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user = User.objects.create_user(
+			username='csrfuser',
+			email='csrf@example.com',
+			password=self.password,
+		)
+		self.url = reverse('webwi:quick_display_name_update')
+
+	def _csrf_client(self):
+		"""Return a test client that enforces CSRF checks."""
+		return Client(enforce_csrf_checks=True)
+
+	def test_post_without_csrf_token_is_rejected(self):
+		"""A state-changing request with no CSRF token must return 403."""
+		csrf_client = self._csrf_client()
+		csrf_client.login(username='csrfuser', password=self.password)
+		response = csrf_client.post(
+			self.url,
+			data=json.dumps({'display_name': 'Hacker'}),
+			content_type='application/json',
+		)
+		self.assertEqual(response.status_code, 403)
+
+	def test_post_with_valid_csrf_token_succeeds(self):
+		"""A request that includes the correct X-CSRFToken header is accepted."""
+		csrf_client = self._csrf_client()
+		csrf_client.login(username='csrfuser', password=self.password)
+		# Fetch any page to obtain the CSRF cookie
+		csrf_client.get(reverse('webwi:dashboard'))
+		csrftoken = csrf_client.cookies['csrftoken'].value
+		response = csrf_client.post(
+			self.url,
+			data=json.dumps({'display_name': 'ValidName'}),
+			content_type='application/json',
+			HTTP_X_CSRFTOKEN=csrftoken,
+		)
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(json.loads(response.content)['display_name'], 'ValidName')
+
+	def test_post_updates_only_the_authenticated_users_display_name(self):
+		"""A successful update writes to request.user's profile, not anyone else's."""
+		self.client.login(username='csrfuser', password=self.password)
+		self.client.post(
+			self.url,
+			data=json.dumps({'display_name': 'MyName'}),
+			content_type='application/json',
+		)
+		profile = Profile.objects.get(user=self.user)
+		self.assertEqual(profile.display_name, 'MyName')
+
+	def test_unauthenticated_request_is_rejected(self):
+		"""Anonymous AJAX calls must not be served."""
+		response = self.client.post(
+			self.url,
+			data=json.dumps({'display_name': 'Anon'}),
+			content_type='application/json',
+		)
+		self.assertNotEqual(response.status_code, 200)
