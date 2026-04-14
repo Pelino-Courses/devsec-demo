@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     DashboardView,
+    ProfilePreviewView,
     ProfileView,
     UserDirectoryView,
     UserLoginView,
@@ -34,4 +35,5 @@ urlpatterns = [
     path('password/reset/<uidb64>/<token>/', UserPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('password/reset/complete/', UserPasswordResetCompleteView.as_view(), name='password_reset_complete'),
     path('profile/display-name/', quick_display_name_update, name='quick_display_name_update'),
+    path('profile/preview/', ProfilePreviewView.as_view(), name='profile_preview'),
 ]

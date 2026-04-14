@@ -165,6 +165,18 @@ class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
     extra_context = {'page_title': 'Password Updated'}
 
 
+class ProfilePreviewView(LoginRequiredMixin, TemplateView):
+    """Read-only preview of the current user's public profile card."""
+
+    template_name = 'webwi/profile_preview.html'
+    extra_context = {'page_title': 'Profile Preview'}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['profile'], _ = Profile.objects.get_or_create(user=self.request.user)
+        return context
+
+
 class ProfileView(OwnershipRequiredMixin, UpdateView):
     model = Profile
     form_class = ProfileForm

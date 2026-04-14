@@ -1,0 +1,21 @@
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card">
+    {# INSECURE: |safe bypasses Django's auto-escaping, allowing stored XSS #}
+    <h1>{{ profile.display_name|safe|default:request.user.username }}</h1>
+    <p class="lead">@{{ request.user.username }}</p>
+
+    {% if profile.bio %}
+        {# INSECURE: user-controlled bio rendered as raw HTML #}
+        <div class="bio-content">{{ profile.bio|safe }}</div>
+    {% else %}
+        <p class="helptext">No bio set yet.</p>
+    {% endif %}
+
+    <div class="actions">
+        <a class="btn" href="{% url 'webwi:profile' %}">Edit profile</a>
+        <a class="btn-ghost" href="{% url 'webwi:dashboard' %}">Dashboard</a>
+    </div>
+</section>
+{% endblock %}
