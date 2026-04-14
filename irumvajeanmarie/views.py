@@ -1,7 +1,8 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import HttpResponseForbidden
 from .forms import RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm
 from .models import Profile
 from .decorators import instructor_required, admin_required
@@ -57,6 +58,8 @@ def dashboard_view(request):
 
 @login_required(login_url='irumvajeanmarie:login')
 def profile_view(request):
+    # IDOR FIX: always load the profile of the currently authenticated user
+    # Never accept a user ID or profile ID from the URL
     profile, created = Profile.objects.get_or_create(
         user=request.user,
         defaults={'role': Profile.ROLE_STUDENT}
@@ -70,6 +73,29 @@ def profile_view(request):
     else:
         form = ProfileUpdateForm(instance=profile)
     return render(request, 'irumvajeanmarie/profile.html', {'form': form, 'profile': profile})
+
+
+@login_required(login_url='irumvajeanmarie:login')
+def view_profile(request, username):
+    # IDOR FIX: only the owner can view their own profile
+    # Instructors and admins may view any profile
+    profile = get_object_or_404(Profile, user__username=username)
+    requester_profile = get_object_or_404(Profile, user=request.user)
+
+    is_owner = profile.user == request.user
+    is_privileged = requester_profile.role in [
+        Profile.ROLE_INSTRUCTOR, Profile.ROLE_ADMIN
+    ]
+
+    if not is_owner and not is_privileged:
+        return HttpResponseForbidden(
+            "Access denied: You are not allowed to view this profile."
+        )
+
+    return render(request, 'irumvajeanmarie/view_profile.html', {
+        'profile': profile,
+        'is_owner': is_owner,
+    })
 
 
 @login_required(login_url='irumvajeanmarie:login')
@@ -93,8 +119,11 @@ def password_change_view(request):
 @login_required(login_url='irumvajeanmarie:login')
 @instructor_required
 def instructor_panel(request):
-    students = Profile.objects.filter(role=Profile.ROLE_STUDENT).select_related('user')
-    return render(request, 'irumvajeanmarie/instructor_panel.html', {'students': students})
+    students = Profile.objects.filter(
+        role=Profile.ROLE_STUDENT).select_related('user')
+    return render(request, 'irumvajeanmarie/instructor_panel.html', {
+        'students': students
+    })
 
 
 # ─── ADMIN ONLY VIEW ──────────────────────────────────────────
@@ -103,4 +132,6 @@ def instructor_panel(request):
 @admin_required
 def admin_panel(request):
     all_profiles = Profile.objects.all().select_related('user')
-    return render(request, 'irumvajeanmarie/admin_panel.html', {'profiles': all_profiles})
+    return render(request, 'irumvajeanmarie/admin_panel.html', {
+        'profiles': all_profiles
+    })

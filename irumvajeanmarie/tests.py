@@ -192,3 +192,58 @@ class RBACTestCase(TestCase):
             response,
             '/irumvajeanmarie/login/?next=/irumvajeanmarie/admin-panel/'
         )
+
+
+class IDORTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user1 = User.objects.create_user(
+            username='user1', email='user1@example.com', password='StrongPass123!')
+        Profile.objects.create(user=self.user1, role=Profile.ROLE_STUDENT)
+
+        self.user2 = User.objects.create_user(
+            username='user2', email='user2@example.com', password='StrongPass123!')
+        Profile.objects.create(user=self.user2, role=Profile.ROLE_STUDENT)
+
+        self.instructor = User.objects.create_user(
+            username='instructor', email='instructor@example.com', password='StrongPass123!')
+        Profile.objects.create(user=self.instructor, role=Profile.ROLE_INSTRUCTOR)
+
+    def test_user_can_view_own_profile(self):
+        self.client.login(username='user1', password='StrongPass123!')
+        response = self.client.get(
+            reverse('irumvajeanmarie:view_profile', kwargs={'username': 'user1'})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_student_cannot_view_other_profile(self):
+        self.client.login(username='user1', password='StrongPass123!')
+        response = self.client.get(
+            reverse('irumvajeanmarie:view_profile', kwargs={'username': 'user2'})
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_can_view_any_profile(self):
+        self.client.login(username='instructor', password='StrongPass123!')
+        response = self.client.get(
+            reverse('irumvajeanmarie:view_profile', kwargs={'username': 'user1'})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_cannot_view_profile(self):
+        response = self.client.get(
+            reverse('irumvajeanmarie:view_profile', kwargs={'username': 'user1'})
+        )
+        self.assertRedirects(
+            response,
+            '/irumvajeanmarie/login/?next=/irumvajeanmarie/profile/user1/'
+        )
+
+    def test_profile_edit_always_uses_own_profile(self):
+        self.client.login(username='user1', password='StrongPass123!')
+        response = self.client.post(reverse('irumvajeanmarie:profile'), {
+            'bio': 'My updated bio',
+        })
+        self.assertRedirects(response, reverse('irumvajeanmarie:profile'))
+        profile = Profile.objects.get(user=self.user1)
+        self.assertEqual(profile.bio, 'My updated bio')
