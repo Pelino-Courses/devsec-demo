@@ -120,3 +120,52 @@ class ProfileTest(TestCase):
         self.assertRedirects(response, reverse('niyitegeka:profile'))
         updated = Profile.objects.get(user=self.user)
         self.assertEqual(updated.bio, 'I am peter.')
+
+
+class RoleBasedAccessTest(TestCase):
+
+    def setUp(self):
+        self.normal_user = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+        self.staff_user = User.objects.create_user(
+            username='staffpeter',
+            password='Secure@1234',
+            is_staff=True
+        )
+
+    def test_staff_dashboard_requires_login(self):
+        response = self.client.get(reverse('niyitegeka:staffdashboard'))
+        self.assertRedirects(
+            response,
+            '/auth/login/?next=/auth/staff/'
+        )
+
+    def test_normal_user_cannot_access_staff_dashboard(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.get(reverse('niyitegeka:staffdashboard'))
+        self.assertRedirects(
+            response,
+            '/auth/login/?next=/auth/staff/'
+        )
+
+    def test_staff_user_can_access_staff_dashboard(self):
+        self.client.login(username='staffpeter', password='Secure@1234')
+        response = self.client.get(reverse('niyitegeka:staffdashboard'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_dashboard_shows_user_list(self):
+        self.client.login(username='staffpeter', password='Secure@1234')
+        response = self.client.get(reverse('niyitegeka:staffdashboard'))
+        self.assertContains(response, 'peter')
+
+    def test_staff_link_visible_to_staff(self):
+        self.client.login(username='staffpeter', password='Secure@1234')
+        response = self.client.get(reverse('niyitegeka:dashboard'))
+        self.assertContains(response, '/auth/staff/')
+
+    def test_staff_link_hidden_from_normal_user(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.get(reverse('niyitegeka:dashboard'))
+        self.assertNotContains(response, '/auth/staff/')

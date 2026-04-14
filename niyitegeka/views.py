@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
 from .forms import (
     RegisterForm,
@@ -9,6 +10,7 @@ from .forms import (
     CustomPasswordChangeForm,
 )
 from .models import Profile
+from .decorators import staff_required
 
 
 def register(request):
@@ -78,4 +80,14 @@ def passwordchange(request):
         request,
         'niyitegeka/password_change.html',
         {'form': form}
+    )
+
+
+@staff_required
+def staffdashboard(request):
+    users = User.objects.all().order_by('username')
+    return render(
+        request,
+        'niyitegeka/staff_dashboard.html',
+        {'users': users}
     )
