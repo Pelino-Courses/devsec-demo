@@ -174,3 +174,84 @@ class RBACTests(TestCase):
 		self.client.login(username='staffer', password=self.password)
 		staff_response = self.client.get(reverse('webwi:dashboard'))
 		self.assertContains(staff_response, reverse('webwi:user_directory'))
+
+
+class IDORPreventionTests(TestCase):
+	"""Verify that the profile view enforces object-level ownership.
+
+	These tests document the IDOR risk and confirm it is prevented:
+	a user must never be able to read or modify another user's profile
+	data by supplying a different identifier in the URL, query string,
+	or POST body.
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user_a = User.objects.create_user(
+			username='user_a',
+			email='a@example.com',
+			password=self.password,
+			first_name='Alice',
+		)
+		self.user_b = User.objects.create_user(
+			username='user_b',
+			email='b@example.com',
+			password=self.password,
+			first_name='Bob',
+		)
+		Profile.objects.get_or_create(user=self.user_a)
+		Profile.objects.get_or_create(user=self.user_b)
+
+	def test_profile_view_returns_only_own_profile(self):
+		"""GET /profile/ binds the form to the authenticated user's profile, not another user's."""
+		self.client.login(username='user_a', password=self.password)
+		response = self.client.get(reverse('webwi:profile'))
+		self.assertEqual(response.status_code, 200)
+		form = response.context['form']
+		self.assertEqual(form.instance.user, self.user_a)
+		self.assertNotEqual(form.instance.user, self.user_b)
+
+	def test_profile_update_does_not_modify_another_users_data(self):
+		"""POST /profile/ updates only the authenticated user; other accounts are unaffected."""
+		self.client.login(username='user_a', password=self.password)
+		self.client.post(
+			reverse('webwi:profile'),
+			{
+				'first_name': 'Attacker',
+				'last_name': 'Owned',
+				'email': 'hacked@example.com',
+				'display_name': 'hacked',
+				'bio': 'I was here.',
+			},
+		)
+		self.user_b.refresh_from_db()
+		self.assertEqual(self.user_b.first_name, 'Bob')
+		self.assertNotEqual(self.user_b.email, 'hacked@example.com')
+
+	def test_submitting_another_users_profile_pk_does_not_affect_them(self):
+		"""A pk value in POST data cannot retarget an update to another user's profile row."""
+		profile_b = Profile.objects.get(user=self.user_b)
+
+		self.client.login(username='user_a', password=self.password)
+		self.client.post(
+			reverse('webwi:profile'),
+			{
+				'id': profile_b.pk,
+				'first_name': 'Injected',
+				'last_name': 'Value',
+				'email': 'injected@example.com',
+				'display_name': 'injected',
+				'bio': 'Injected bio.',
+			},
+		)
+
+		profile_b.refresh_from_db()
+		self.assertNotEqual(profile_b.bio, 'Injected bio.')
+		self.user_b.refresh_from_db()
+		self.assertNotEqual(self.user_b.email, 'injected@example.com')
+
+	def test_unauthenticated_access_to_profile_is_redirected(self):
+		"""Unauthenticated requests to /profile/ are redirected to login, not served."""
+		response = self.client.get(reverse('webwi:profile'))
+		self.assertEqual(response.status_code, 302)
+		self.assertIn(reverse('webwi:login'), response['Location'])

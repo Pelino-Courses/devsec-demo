@@ -28,6 +28,21 @@ class PrivilegedAccessMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
+class OwnershipRequiredMixin(LoginRequiredMixin):
+    """Enforce object-level ownership: the fetched object's user must be the current user.
+
+    Prevents IDOR by refusing access whenever the object returned by get_object()
+    belongs to a different account.  Apply this mixin to any view that looks up
+    a user-owned resource so the protection is explicit and auditable.
+    """
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset=queryset)
+        if not hasattr(obj, 'user') or obj.user_id != self.request.user.pk:
+            raise PermissionDenied('You do not have permission to access this resource.')
+        return obj
+
+
 class UserRegistrationView(FormView):
     form_class = RegistrationForm
     template_name = 'webwi/register.html'
@@ -67,7 +82,7 @@ class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
     extra_context = {'page_title': 'Password Updated'}
 
 
-class ProfileView(LoginRequiredMixin, UpdateView):
+class ProfileView(OwnershipRequiredMixin, UpdateView):
     model = Profile
     form_class = ProfileForm
     template_name = 'webwi/profile.html'
@@ -75,7 +90,12 @@ class ProfileView(LoginRequiredMixin, UpdateView):
     extra_context = {'page_title': 'My Profile'}
 
     def get_object(self, queryset=None):
+        # Fetch the profile that belongs to the authenticated user only.
+        # This eliminates the IDOR vector: no URL parameter, query string value,
+        # or POST field can redirect this lookup to another user's profile row.
         profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        if profile.user_id != self.request.user.pk:
+            raise PermissionDenied('You do not have permission to access this profile.')
         return profile
 
     def get_form_kwargs(self):
