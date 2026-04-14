@@ -17,12 +17,34 @@ from django.contrib.auth.views import (
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
 
 from .forms import LoginForm, PasswordResetRequestForm, PasswordResetSetForm, PasswordUpdateForm, ProfileForm, RegistrationForm
 from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
+
+
+class SafeRedirectMixin:
+    """Validate redirect targets before use to prevent open-redirect attacks.
+
+    Only redirects whose scheme and host match the current request host are
+    permitted.  Any external, protocol-relative, or otherwise unsafe target
+    falls back to the supplied default URL.
+    """
+
+    def get_safe_next_url(self, fallback):
+        next_url = (
+            self.request.POST.get('next') or self.request.GET.get('next', '')
+        ).strip()
+        if next_url and url_has_allowed_host_and_scheme(
+            url=next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return next_url
+        return str(fallback)
 
 
 class PrivilegedAccessMixin(LoginRequiredMixin):
@@ -57,7 +79,7 @@ class OwnershipRequiredMixin(LoginRequiredMixin):
         return obj
 
 
-class UserRegistrationView(FormView):
+class UserRegistrationView(SafeRedirectMixin, FormView):
     form_class = RegistrationForm
     template_name = 'webwi/register.html'
     success_url = reverse_lazy('webwi:login')
@@ -66,24 +88,17 @@ class UserRegistrationView(FormView):
     def form_valid(self, form):
         form.save()
         messages.success(self.request, 'Account created successfully. You can now log in.')
-        # INSECURE: uses next from the request without validating the host
-        next_url = self.request.POST.get('next') or self.request.GET.get('next', '')
-        if next_url:
-            return redirect(next_url)
-        return super().form_valid(form)
+        return redirect(self.get_safe_next_url(self.success_url))
 
 
 class UserLoginView(LoginView):
     form_class = LoginForm
     template_name = 'webwi/login.html'
     extra_context = {'page_title': 'Welcome Back'}
-
-    def get_redirect_url(self):
-        # INSECURE: returns next without validating against allowed hosts,
-        # allowing an attacker to craft /login/?next=https://evil.com/
-        next_url = self.request.POST.get(self.redirect_field_name) or \
-                   self.request.GET.get(self.redirect_field_name, '')
-        return next_url  # no host validation
+    # Django's LoginView.get_redirect_url() already calls
+    # url_has_allowed_host_and_scheme; we must NOT override it without
+    # repeating that check.  The broken override from the previous commit
+    # is removed here so the safe built-in implementation is restored.
 
     def post(self, request, *args, **kwargs):
         # Check lockout before processing credentials so the authentication

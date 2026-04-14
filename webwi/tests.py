@@ -513,3 +513,83 @@ class CSRFProtectionTests(TestCase):
 			content_type='application/json',
 		)
 		self.assertNotEqual(response.status_code, 200)
+
+
+class OpenRedirectTests(TestCase):
+	"""Verify that redirect targets in login and registration flows are validated.
+
+	Covers both safe internal redirects (allowed) and unsafe external or
+	protocol-relative redirects (rejected with fallback to the default URL).
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user = User.objects.create_user(
+			username='redirectuser',
+			email='redirect@example.com',
+			password=self.password,
+		)
+
+	# --- Login flow ---
+
+	def test_login_with_safe_internal_next_follows_it(self):
+		"""A relative internal next URL is allowed after successful login."""
+		target = reverse('webwi:profile')
+		response = self.client.post(
+			reverse('webwi:login') + '?next=' + target,
+			{'username': 'redirectuser', 'password': self.password},
+		)
+		self.assertRedirects(response, target, fetch_redirect_response=False)
+
+	def test_login_with_external_next_falls_back_to_dashboard(self):
+		"""An absolute external next URL must be rejected; user lands on dashboard."""
+		response = self.client.post(
+			reverse('webwi:login') + '?next=https://evil.com/',
+			{'username': 'redirectuser', 'password': self.password},
+		)
+		self.assertRedirects(response, reverse('webwi:dashboard'), fetch_redirect_response=False)
+
+	def test_login_with_protocol_relative_external_next_is_rejected(self):
+		"""A protocol-relative URL pointing off-host must be rejected."""
+		response = self.client.post(
+			reverse('webwi:login') + '?next=//evil.com/steal',
+			{'username': 'redirectuser', 'password': self.password},
+		)
+		self.assertRedirects(response, reverse('webwi:dashboard'), fetch_redirect_response=False)
+
+	def test_login_with_no_next_redirects_to_dashboard(self):
+		"""Login without a next parameter redirects to the default dashboard."""
+		response = self.client.post(
+			reverse('webwi:login'),
+			{'username': 'redirectuser', 'password': self.password},
+		)
+		self.assertRedirects(response, reverse('webwi:dashboard'), fetch_redirect_response=False)
+
+	# --- Registration flow ---
+
+	def test_registration_with_safe_internal_next_follows_it(self):
+		"""A safe next URL is honoured after successful registration."""
+		target = reverse('webwi:login')
+		response = self.client.post(
+			reverse('webwi:register') + '?next=' + target,
+			{
+				'username': 'newuser1',
+				'email': 'new1@example.com',
+				'password1': 'TestPass999!',
+				'password2': 'TestPass999!',
+			},
+		)
+		self.assertRedirects(response, target, fetch_redirect_response=False)
+
+	def test_registration_with_external_next_falls_back_to_login(self):
+		"""An external next URL after registration must be rejected."""
+		response = self.client.post(
+			reverse('webwi:register') + '?next=https://evil.com/',
+			{
+				'username': 'newuser2',
+				'email': 'new2@example.com',
+				'password1': 'TestPass999!',
+				'password2': 'TestPass999!',
+			},
+		)
+		self.assertRedirects(response, reverse('webwi:login'), fetch_redirect_response=False)
