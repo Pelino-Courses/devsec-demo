@@ -1,0 +1,34 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Admin Area{% endblock %}
+
+{% block content %}
+<h2>Admin Area</h2>
+<p>Welcome, {{ user.username }}! You have full admin access.</p>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <h3>All Users</h3>
+    {% if all_users %}
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #dee2e6;">
+                <th style="padding: 8px; text-align: left;">Username</th>
+                <th style="padding: 8px; text-align: left;">Email</th>
+                <th style="padding: 8px; text-align: left;">Staff</th>
+            </tr>
+            {% for u in all_users %}
+            <tr style="border-bottom: 1px solid #dee2e6;">
+                <td style="padding: 8px;">{{ u.username }}</td>
+                <td style="padding: 8px;">{{ u.email }}</td>
+                <td style="padding: 8px;">{{ u.is_staff|yesno:"Yes,No" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No users found.</p>
+    {% endif %}
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'jeanclaudeirumva:dashboard' %}">Back to Dashboard</a>
+</div>
+{% endblock %}

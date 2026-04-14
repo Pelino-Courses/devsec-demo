@@ -1,0 +1,25 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Instructor Area{% endblock %}
+
+{% block content %}
+<h2>Instructor Area</h2>
+<p>Welcome, {{ user.username }}! You have instructor access.</p>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <h3>Student List</h3>
+    {% if students %}
+        <ul>
+            {% for student in students %}
+                <li>{{ student.username }} — {{ student.email }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No students registered yet.</p>
+    {% endif %}
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'jeanclaudeirumva:dashboard' %}">Back to Dashboard</a>
+</div>
+{% endblock %}
