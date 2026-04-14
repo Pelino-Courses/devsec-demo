@@ -1,0 +1,39 @@
+{% extends "niyitegeka/base.html" %}
+
+{% block title %}Upload Avatar{% endblock %}
+
+{% block content %}
+<h2>Upload Avatar</h2>
+
+<p style="color: #666; margin-bottom: 20px;">
+    Allowed file types: jpg, jpeg, png, gif. Maximum size: 2MB.
+</p>
+
+<form method="POST" action="" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-group">
+        <label>{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+        <ul class="errorlist">
+            {% for error in field.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit">Upload Avatar</button>
+</form>
+
+{% if userprofile.avatar %}
+<p style="margin-top: 20px; color: #666;">
+    Current avatar: {{ userprofile.avatar.name }}
+</p>
+{% endif %}
+
+<div class="link">
+    <a href="/auth/dashboard/">Back to Dashboard</a>
+</div>
+{% endblock %}

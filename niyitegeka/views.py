@@ -1,0 +1,255 @@
+import logging
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, logout, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib import messages
+from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
+from django.utils.http import url_has_allowed_host_and_scheme
+from .forms import (
+    RegisterForm,
+    LoginForm,
+    ProfileUpdateForm,
+    CustomPasswordChangeForm,
+    AvatarUploadForm,
+    DocumentUploadForm,
+)
+from .models import Profile, LoginAttempt
+from .decorators import staff_required
+
+audit = logging.getLogger('niyitegeka.audit')
+
+
+def get_client_ip(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
+def register(request):
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            Profile.objects.create(user=user)
+            audit.info(
+                'REGISTRATION username=%s ip=%s',
+                user.username,
+                get_client_ip(request)
+            )
+            messages.success(
+                request,
+                'Account created successfully. Please log in.'
+            )
+            return redirect('niyitegeka:login')
+    else:
+        form = RegisterForm()
+    return render(request, 'niyitegeka/register.html', {'form': form})
+
+
+def loginview(request):
+    if request.method == 'POST':
+        form = LoginForm(request, data=request.POST)
+        username = request.POST.get('username', '')
+        attempt, created = LoginAttempt.objects.get_or_create(
+            username=username
+        )
+        if attempt.is_locked():
+            audit.warning(
+                'LOGIN_BLOCKED username=%s ip=%s',
+                username,
+                get_client_ip(request)
+            )
+            messages.error(
+                request,
+                'Account temporarily locked due to too many failed attempts. '
+                'Please try again in 10 minutes.'
+            )
+            return render(
+                request,
+                'niyitegeka/login.html',
+                {'form': form}
+            )
+        if form.is_valid():
+            user = form.get_user()
+            attempt.reset()
+            login(request, user)
+            audit.info(
+                'LOGIN_SUCCESS username=%s ip=%s',
+                user.username,
+                get_client_ip(request)
+            )
+            next_url = request.POST.get(
+                'next', request.GET.get('next', '')
+            )
+            if next_url and url_has_allowed_host_and_scheme(
+                url=next_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure()
+            ):
+                return redirect(next_url)
+            return redirect('niyitegeka:dashboard')
+        else:
+            attempt.increment()
+            remaining = 5 - attempt.attempts
+            audit.warning(
+                'LOGIN_FAILURE username=%s ip=%s attempts=%s',
+                username,
+                get_client_ip(request),
+                attempt.attempts
+            )
+            if remaining > 0:
+                messages.error(
+                    request,
+                    f'Invalid credentials. {remaining} attempts remaining '
+                    f'before account is locked.'
+                )
+            else:
+                audit.warning(
+                    'ACCOUNT_LOCKED username=%s ip=%s',
+                    username,
+                    get_client_ip(request)
+                )
+                messages.error(
+                    request,
+                    'Account locked for 10 minutes due to too many '
+                    'failed attempts.'
+                )
+    else:
+        form = LoginForm()
+    return render(request, 'niyitegeka/login.html', {'form': form})
+
+
+def logoutview(request):
+    if request.user.is_authenticated:
+        audit.info(
+            'LOGOUT username=%s ip=%s',
+            request.user.username,
+            get_client_ip(request)
+        )
+    logout(request)
+    return redirect('niyitegeka:login')
+
+
+@login_required
+def dashboard(request):
+    return render(request, 'niyitegeka/dashboard.html')
+
+
+@login_required
+def profile(request):
+    userprofile, created = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        form = ProfileUpdateForm(request.POST, instance=userprofile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return redirect('niyitegeka:profile')
+    else:
+        form = ProfileUpdateForm(instance=userprofile)
+    return render(request, 'niyitegeka/profile.html', {'form': form})
+
+
+@login_required
+def passwordchange(request):
+    if request.method == 'POST':
+        form = CustomPasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            audit.info(
+                'PASSWORD_CHANGE username=%s ip=%s',
+                request.user.username,
+                get_client_ip(request)
+            )
+            messages.success(request, 'Password changed successfully.')
+            return redirect('niyitegeka:dashboard')
+    else:
+        form = CustomPasswordChangeForm(request.user)
+    return render(
+        request,
+        'niyitegeka/password_change.html',
+        {'form': form}
+    )
+
+
+@staff_required
+def staffdashboard(request):
+    users = User.objects.all().order_by('username')
+    return render(
+        request,
+        'niyitegeka/staff_dashboard.html',
+        {'users': users}
+    )
+
+
+@login_required
+def profiledetail(request, username):
+    if request.user.username != username and not request.user.is_staff:
+        raise PermissionDenied
+    targetuser = get_object_or_404(User, username=username)
+    userprofile = get_object_or_404(Profile, user=targetuser)
+    return render(
+        request,
+        'niyitegeka/profile_detail.html',
+        {'targetuser': targetuser, 'userprofile': userprofile}
+    )
+
+
+@login_required
+def updatebio(request):
+    if request.method == 'POST':
+        bio = request.POST.get('bio', '')
+        userprofile, created = Profile.objects.get_or_create(
+            user=request.user
+        )
+        userprofile.bio = bio
+        userprofile.save()
+        return JsonResponse({'status': 'ok', 'bio': bio})
+    return JsonResponse({'status': 'error'}, status=400)
+
+
+@login_required
+def avatarupload(request):
+    userprofile, created = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        form = AvatarUploadForm(
+            request.POST,
+            request.FILES,
+            instance=userprofile
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Avatar uploaded successfully.')
+            return redirect('niyitegeka:avatarupload')
+    else:
+        form = AvatarUploadForm(instance=userprofile)
+    return render(
+        request,
+        'niyitegeka/avatar_upload.html',
+        {'form': form, 'userprofile': userprofile}
+    )
+
+
+@login_required
+def documentupload(request):
+    userprofile, created = Profile.objects.get_or_create(user=request.user)
+    if request.method == 'POST':
+        form = DocumentUploadForm(
+            request.POST,
+            request.FILES,
+            instance=userprofile
+        )
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Document uploaded successfully.')
+            return redirect('niyitegeka:documentupload')
+    else:
+        form = DocumentUploadForm(instance=userprofile)
+    return render(
+        request,
+        'niyitegeka/document_upload.html',
+        {'form': form, 'userprofile': userprofile}
+    )
