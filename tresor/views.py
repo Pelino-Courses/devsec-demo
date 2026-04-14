@@ -2,7 +2,9 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.models import User
 from django.contrib import messages
+from .decorators import instructor_required
 from .forms import RegistrationForm, LoginForm, ProfileUpdateForm
 
 
@@ -47,7 +49,11 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    return render(request, 'tresor/dashboard.html')
+    is_instructor = (
+        request.user.groups.filter(name='instructor').exists()
+        or request.user.is_staff
+    )
+    return render(request, 'tresor/dashboard.html', {'is_instructor': is_instructor})
 
 
 @login_required
@@ -80,3 +86,9 @@ def password_change(request):
 @login_required
 def password_change_done(request):
     return render(request, 'tresor/password_change_done.html')
+
+
+@instructor_required
+def instructor_dashboard(request):
+    users = User.objects.select_related('profile').order_by('username')
+    return render(request, 'tresor/instructor_dashboard.html', {'users': users})

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}UAS{% endblock %}</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; }
         nav { margin-bottom: 20px; }
         nav a { margin-right: 10px; }
         .messages { list-style: none; padding: 0; }
@@ -19,6 +19,12 @@
         }
         button, input[type="submit"] { margin-top: 14px; padding: 8px 16px; cursor: pointer; }
         .errorlist { color: red; font-size: 0.85em; padding-left: 0; list-style: none; }
+        .role-badge { font-size: 0.8em; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
+        .role-instructor { background: #fff3cd; color: #856404; }
+        .role-student { background: #d1ecf1; color: #0c5460; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
     </style>
 </head>
 <body>
@@ -27,6 +33,16 @@
         <a href="{% url 'tresor:dashboard' %}">Dashboard</a>
         <a href="{% url 'tresor:profile' %}">Profile</a>
         <a href="{% url 'tresor:password_change' %}">Change Password</a>
+        {% if user.groups.all|length > 0 %}
+            {% for group in user.groups.all %}
+                {% if group.name == 'instructor' %}
+                    <a href="{% url 'tresor:instructor_dashboard' %}">Instructor Area</a>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if user.is_staff %}
+            <a href="{% url 'tresor:instructor_dashboard' %}">Instructor Area</a>
+        {% endif %}
         <form method="post" action="{% url 'tresor:logout' %}" style="display:inline">
             {% csrf_token %}
             <button type="submit">Logout</button>

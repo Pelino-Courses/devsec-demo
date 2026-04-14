@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 
 
 class RegistrationTests(TestCase):
@@ -127,3 +127,52 @@ class PasswordChangeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('Securepass123!'))
+
+
+class RBACTests(TestCase):
+    def setUp(self):
+        self.student = User.objects.create_user(
+            username='student1', password='Securepass123!'
+        )
+        self.instructor = User.objects.create_user(
+            username='instructor1', password='Securepass123!'
+        )
+        self.instructor_group, _ = Group.objects.get_or_create(name='instructor')
+        self.instructor.groups.add(self.instructor_group)
+
+    def test_anonymous_cannot_access_instructor_dashboard(self):
+        response = self.client.get(reverse('tresor:instructor_dashboard'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_student_cannot_access_instructor_dashboard(self):
+        self.client.login(username='student1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:instructor_dashboard'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_can_access_instructor_dashboard(self):
+        self.client.login(username='instructor1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:instructor_dashboard'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_user_can_access_instructor_dashboard(self):
+        staff = User.objects.create_user(
+            username='staffuser', password='Securepass123!', is_staff=True
+        )
+        self.client.login(username='staffuser', password='Securepass123!')
+        response = self.client.get(reverse('tresor:instructor_dashboard'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_dashboard_shows_instructor_badge(self):
+        self.client.login(username='instructor1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:dashboard'))
+        self.assertContains(response, 'Instructor')
+
+    def test_dashboard_shows_student_badge(self):
+        self.client.login(username='student1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:dashboard'))
+        self.assertContains(response, 'Student')
+
+    def test_instructor_sees_all_users(self):
+        self.client.login(username='instructor1', password='Securepass123!')
+        response = self.client.get(reverse('tresor:instructor_dashboard'))
+        self.assertContains(response, 'student1')
