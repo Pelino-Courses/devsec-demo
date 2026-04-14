@@ -27,6 +27,17 @@
         {% endif %}
     </div>
 
+    <div class="field" style="margin-top:1.5rem;">
+        <label for="display-name-input">Display Name <small>(quick update)</small></label>
+        <div style="display:flex;gap:.5rem;align-items:center;">
+            <input id="display-name-input" class="input" style="max-width:20rem;"
+                   value="{{ request.user.profile.display_name|default:'' }}"
+                   placeholder="Set a display name">
+            <button id="display-name-save" class="btn" type="button">Save</button>
+        </div>
+        <p id="display-name-msg" style="margin-top:.4rem;font-size:.85rem;"></p>
+    </div>
+
     <div class="actions">
         <form class="logout-inline" method="post" action="{% url 'webwi:logout' %}">
             {% csrf_token %}
@@ -34,4 +45,21 @@
         </form>
     </div>
 </section>
+
+<script>
+/* INSECURE: fetch sends no X-CSRFToken header — CSRF protection is bypassed */
+document.getElementById('display-name-save').addEventListener('click', function () {
+    var name = document.getElementById('display-name-input').value;
+    fetch('{% url "webwi:quick_display_name_update" %}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_name: name })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        document.getElementById('display-name-msg').textContent =
+            data.display_name !== undefined ? 'Saved: ' + data.display_name : data.error;
+    });
+});
+</script>
 {% endblock %}

@@ -14,6 +14,7 @@ from .views import (
     UserPasswordResetView,
     UserRegistrationView,
     home_redirect,
+    quick_display_name_update,
 )
 
 app_name = 'webwi'
@@ -32,4 +33,5 @@ urlpatterns = [
     path('password/reset/done/', UserPasswordResetDoneView.as_view(), name='password_reset_done'),
     path('password/reset/<uidb64>/<token>/', UserPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('password/reset/complete/', UserPasswordResetCompleteView.as_view(), name='password_reset_complete'),
+    path('profile/display-name/', quick_display_name_update, name='quick_display_name_update'),
 ]

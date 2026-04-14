@@ -1,5 +1,8 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import (
     LoginView,
@@ -12,7 +15,10 @@ from django.contrib.auth.views import (
     PasswordResetView,
 )
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
 
@@ -178,6 +184,23 @@ class UserPasswordResetConfirmView(PasswordResetConfirmView):
 class UserPasswordResetCompleteView(PasswordResetCompleteView):
     template_name = 'webwi/password_reset_complete.html'
     extra_context = {'page_title': 'Password Reset Complete'}
+
+
+@csrf_exempt  # INSECURE: CSRF protection disabled on a state-changing endpoint
+@login_required
+@require_POST
+def quick_display_name_update(request):
+    """AJAX endpoint to update the authenticated user's display name."""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    display_name = data.get('display_name', '').strip()[:150]
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    profile.display_name = display_name
+    profile.save(update_fields=['display_name'])
+    return JsonResponse({'display_name': profile.display_name})
 
 
 def home_redirect(request):
