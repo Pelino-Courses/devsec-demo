@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block title %}Student Portal - Aline Uwamahoro{% endblock %}
+    </title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --primary-color: #2c3e50;
+        --accent-color: #3498db;
+        --success-color: #27ae60;
+        --danger-color: #e74c3c;
+      }
+
+      body {
+        background-color: #f8f9fa;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .navbar {
+        background: linear-gradient(
+          135deg,
+          var(--primary-color) 0%,
+          #34495e 100%
+        );
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .navbar-brand {
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+
+      .nav-link {
+        transition: color 0.3s ease;
+      }
+
+      .nav-link:hover {
+        color: var(--accent-color) !important;
+      }
+
+      .container-main {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .content {
+        flex: 1;
+        padding: 2rem 0;
+      }
+
+      .card {
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .card-header {
+        background: linear-gradient(
+          135deg,
+          var(--primary-color) 0%,
+          #34495e 100%
+        );
+        border-radius: 10px 10px 0 0 !important;
+        padding: 1.5rem;
+      }
+
+      .card-header h2 {
+        color: white;
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      .btn-primary {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+      }
+
+      .btn-primary:hover {
+        background-color: #2980b9;
+        border-color: #2980b9;
+      }
+
+      .form-control:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+      }
+
+      .form-control.is-invalid:focus {
+        border-color: var(--danger-color);
+        box-shadow: 0 0 0 0.2rem rgba(231, 76, 60, 0.25);
+      }
+
+      .alert {
+        border: none;
+        border-radius: 8px;
+      }
+
+      .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+      }
+
+      .alert-error,
+      .alert-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+
+      .errorlist {
+        list-style: none;
+        padding: 0;
+        color: var(--danger-color);
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+      }
+
+      .errorlist li {
+        margin-bottom: 0.25rem;
+      }
+
+      footer {
+        background: var(--primary-color);
+        color: white;
+        padding: 2rem 0;
+        margin-top: auto;
+        text-align: center;
+        font-size: 0.9rem;
+      }
+
+      .hero-section {
+        background: linear-gradient(
+          135deg,
+          var(--primary-color) 0%,
+          #34495e 100%
+        );
+        color: white;
+        padding: 4rem 0;
+        text-align: center;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+      }
+
+      .hero-section h1 {
+        font-weight: 700;
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .hero-section p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+      }
+
+      .dashboard-widget {
+        padding: 1.5rem;
+        background: white;
+        border-radius: 10px;
+        border-left: 4px solid var(--accent-color);
+        margin-bottom: 1rem;
+      }
+
+      .dashboard-widget h5 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .dashboard-widget .number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-color);
+      }
+
+      .auth-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem 0;
+      }
+
+      .auth-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        max-width: 450px;
+        width: 100%;
+      }
+
+      .auth-card .card-header {
+        border-radius: 15px 15px 0 0;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .auth-card .card-body {
+        padding: 2rem;
+      }
+
+      .auth-link {
+        text-align: center;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e9ecef;
+      }
+
+      .auth-link a {
+        color: var(--accent-color);
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .auth-link a:hover {
+        text-decoration: underline;
+      }
+
+      .breadcrumb {
+        background-color: transparent;
+        padding: 1rem 0;
+      }
+
+      .breadcrumb-item.active {
+        color: var(--primary-color);
+      }
+
+      .breadcrumb a {
+        color: var(--accent-color);
+      }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body>
+    <div class="container-main d-flex flex-column">
+      <!-- Navigation Bar -->
+      <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+          <a class="navbar-brand" href="{% url 'aline_uwamahoro:home' %}">
+            🎓 Student Portal
+          </a>
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'aline_uwamahoro:home' %}"
+                  >Home</a
+                >
+              </li>
+
+              {% if user.is_authenticated %}
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'aline_uwamahoro:dashboard' %}"
+                  >Dashboard</a
+                >
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'aline_uwamahoro:profile' %}"
+                  >Profile</a
+                >
+              </li>
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-link dropdown-toggle"
+                  href="#"
+                  id="navbarDropdown"
+                  role="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  {{ user.username }}
+                </a>
+                <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                  <li>
+                    <a
+                      class="dropdown-item"
+                      href="{% url 'aline_uwamahoro:profile' %}"
+                      >My Profile</a
+                    >
+                  </li>
+                  <li>
+                    <a
+                      class="dropdown-item"
+                      href="{% url 'aline_uwamahoro:password_change' %}"
+                      >Change Password</a
+                    >
+                  </li>
+                  <li>
+                    <hr class="dropdown-divider" />
+                  </li>
+                  <li>
+                    <a
+                      class="dropdown-item"
+                      href="{% url 'aline_uwamahoro:logout' %}"
+                      >Logout</a
+                    >
+                  </li>
+                </ul>
+              </li>
+              {% else %}
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'aline_uwamahoro:login' %}"
+                  >Login</a
+                >
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'aline_uwamahoro:register' %}"
+                  >Register</a
+                >
+              </li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Messages -->
+      <div class="container mt-3">
+        {% if messages %} {% for message in messages %}
+        <div
+          class="alert alert-{{ message.tags }} alert-dismissible fade show"
+          role="alert"
+        >
+          {{ message }}
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert"
+            aria-label="Close"
+          ></button>
+        </div>
+        {% endfor %} {% endif %}
+      </div>
+
+      <!-- Page Content -->
+      <div class="content">{% block content %}{% endblock %}</div>
+
+      <!-- Footer -->
+      <footer>
+        <div class="container">
+          <p>&copy; 2024 Student Authentication Portal. All rights reserved.</p>
+          <p>Contact: support@portal.local | Status: ✓ Secure</p>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

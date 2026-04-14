@@ -1,0 +1,153 @@
+{% extends 'aline_uwamahoro/base.html' %} {% block title %}Home - Student
+Portal{% endblock %} {% block content %}
+<div class="container">
+  <div class="hero-section">
+    <h1>Welcome to the Student Portal</h1>
+    <p>Secure authentication and account management for students</p>
+  </div>
+
+  <div class="row mt-5">
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title">📚 Dashboard</h5>
+          <p class="card-text">
+            Access your personalized dashboard with quick insights and
+            activities.
+          </p>
+          {% if user.is_authenticated %}
+          <a
+            href="{% url 'aline_uwamahoro:dashboard' %}"
+            class="btn btn-primary"
+            >Go to Dashboard</a
+          >
+          {% else %}
+          <a href="{% url 'aline_uwamahoro:login' %}" class="btn btn-primary"
+            >Login to Access</a
+          >
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title">👤 Profile</h5>
+          <p class="card-text">
+            Manage your profile information and personal details.
+          </p>
+          {% if user.is_authenticated %}
+          <a href="{% url 'aline_uwamahoro:profile' %}" class="btn btn-primary"
+            >View Profile</a
+          >
+          {% else %}
+          <a href="{% url 'aline_uwamahoro:register' %}" class="btn btn-primary"
+            >Create Account</a
+          >
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title">🔐 Security</h5>
+          <p class="card-text">
+            Manage your password and account security settings.
+          </p>
+          {% if user.is_authenticated %}
+          <a
+            href="{% url 'aline_uwamahoro:password_change' %}"
+            class="btn btn-primary"
+            >Change Password</a
+          >
+          {% else %}
+          <a href="{% url 'aline_uwamahoro:login' %}" class="btn btn-primary"
+            >Login Now</a
+          >
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics Section -->
+  <div class="row mt-5">
+    <div class="col-12">
+      <h3 class="mb-4">Portal Statistics</h3>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="dashboard-widget">
+        <h5>Total Students</h5>
+        <div class="number">{{ total_students }}</div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="dashboard-widget">
+        <h5>Secure Authentication</h5>
+        <p>
+          <span style="color: #27ae60">✓</span> Django built-in auth enabled
+        </p>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6">
+      <div class="dashboard-widget">
+        <h5>CSRF Protection</h5>
+        <p><span style="color: #27ae60">✓</span> Enabled on all forms</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features Section -->
+  <div class="row mt-5 mb-5">
+    <div class="col-12">
+      <h3 class="mb-4">Key Features</h3>
+    </div>
+  </div>
+
+  <div class="row mb-5">
+    <div class="col-lg-6 mb-3">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">✓ Secure Registration</h5>
+          <p class="card-text">
+            Create a new account with password validation and encrypted storage.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">✓ Authenticated Sessions</h5>
+          <p class="card-text">
+            Secure session management with automatic timeout features.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">✓ Profile Management</h5>
+          <p class="card-text">
+            Update your personal information and student details easily.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">✓ Password Security</h5>
+          <p class="card-text">
+            Change your password with current password verification.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
