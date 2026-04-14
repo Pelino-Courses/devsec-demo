@@ -1,0 +1,7 @@
+{% extends "tresor/base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block content %}
+<h2>Access Denied</h2>
+<p>You do not have permission to view this page.</p>
+<a href="{% url 'tresor:dashboard' %}">Back to dashboard</a>
+{% endblock %}
