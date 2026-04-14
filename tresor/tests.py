@@ -5,6 +5,8 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.core import mail
+from django.utils import timezone
+from tresor.models import LoginAttempt, MAX_ATTEMPTS, LOCKOUT_MINUTES
 
 
 class RegistrationTests(TestCase):
@@ -353,3 +355,83 @@ class PasswordResetTests(TestCase):
     def test_reset_complete_page_loads(self):
         response = self.client.get(reverse('tresor:password_reset_complete'))
         self.assertEqual(response.status_code, 200)
+
+
+class BruteForceProtectionTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='targetuser', password='Securepass123!'
+        )
+        self.login_url = reverse('tresor:login')
+
+    def _fail_login(self, times=1):
+        for _ in range(times):
+            self.client.post(self.login_url, {
+                'username': 'targetuser',
+                'password': 'wrongpassword',
+            })
+
+    def test_single_failed_attempt_allowed(self):
+        response = self.client.post(self.login_url, {
+            'username': 'targetuser',
+            'password': 'wrongpassword',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_attempts_are_recorded(self):
+        self._fail_login(3)
+        attempt = LoginAttempt.objects.get(username='targetuser')
+        self.assertEqual(attempt.attempts, 3)
+
+    def test_account_locked_after_max_attempts(self):
+        self._fail_login(MAX_ATTEMPTS)
+        attempt = LoginAttempt.objects.get(username='targetuser')
+        self.assertTrue(attempt.is_locked())
+
+    def test_locked_account_cannot_login_with_correct_password(self):
+        self._fail_login(MAX_ATTEMPTS)
+        response = self.client.post(self.login_url, {
+            'username': 'targetuser',
+            'password': 'Securepass123!',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_lockout_message_shown(self):
+        self._fail_login(MAX_ATTEMPTS)
+        response = self.client.post(self.login_url, {
+            'username': 'targetuser',
+            'password': 'Securepass123!',
+        })
+        self.assertContains(response, 'Too many failed attempts')
+
+    def test_successful_login_resets_attempts(self):
+        self._fail_login(3)
+        self.client.post(self.login_url, {
+            'username': 'targetuser',
+            'password': 'Securepass123!',
+        })
+        attempt = LoginAttempt.objects.get(username='targetuser')
+        self.assertEqual(attempt.attempts, 0)
+        self.assertIsNone(attempt.locked_until)
+
+    def test_lockout_expires_after_timeout(self):
+        self._fail_login(MAX_ATTEMPTS)
+        attempt = LoginAttempt.objects.get(username='targetuser')
+        attempt.locked_until = timezone.now() - timezone.timedelta(minutes=1)
+        attempt.save()
+
+        response = self.client.post(self.login_url, {
+            'username': 'targetuser',
+            'password': 'Securepass123!',
+        })
+        self.assertRedirects(response, reverse('tresor:dashboard'))
+
+    def test_normal_login_unaffected(self):
+        response = self.client.post(self.login_url, {
+            'username': 'targetuser',
+            'password': 'Securepass123!',
+        })
+        self.assertRedirects(response, reverse('tresor:dashboard'))
+        self.assertTrue(response.wsgi_request.user.is_authenticated)

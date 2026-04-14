@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from .decorators import instructor_required
 from .forms import RegistrationForm, LoginForm, ProfileUpdateForm
+from .models import LoginAttempt
 
 
 def _is_instructor(user):
@@ -32,13 +33,23 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('tresor:dashboard')
     if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        attempt, _ = LoginAttempt.objects.get_or_create(username=username)
+
+        if attempt.is_locked():
+            messages.error(request, 'Too many failed attempts. Please try again later.')
+            return render(request, 'tresor/login.html', {'form': LoginForm()})
+
         form = LoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+            attempt.record_success()
             login(request, user)
             messages.success(request, f'Welcome back, {user.username}.')
             next_url = request.GET.get('next', 'tresor:dashboard')
             return redirect(next_url)
+        else:
+            attempt.record_failure()
     else:
         form = LoginForm()
     return render(request, 'tresor/login.html', {'form': form})
