@@ -1,0 +1,21 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<h2>My Profile</h2>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>First Name:</strong> {{ user.first_name|default:"Not set" }}</p>
+    <p><strong>Last Name:</strong> {{ user.last_name|default:"Not set" }}</p>
+    <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+    <p><strong>Last login:</strong> {{ user.last_login|date:"F d, Y H:i" }}</p>
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'jeanclaudeirumva:dashboard' %}">Back to Dashboard</a> |
+    <a href="{% url 'jeanclaudeirumva:password_change' %}">Change Password</a>
+</div>
+{% endblock %}
