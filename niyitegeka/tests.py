@@ -1,7 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
-from .models import Profile
+from django.utils import timezone
+from .models import Profile, LoginAttempt
 
 
 class RegistrationTest(TestCase):
@@ -220,3 +221,113 @@ class IDORPreventionTest(TestCase):
             response,
             '/auth/login/?next=/auth/profile/peter/'
         )
+
+
+class PasswordResetTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='peter',
+            email='peter@example.com',
+            password='Secure@1234'
+        )
+
+    def test_password_reset_page_loads(self):
+        response = self.client.get(
+            reverse('niyitegeka:passwordreset')
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_password_reset_done_page_loads(self):
+        response = self.client.get(
+            reverse('niyitegeka:passwordresetdone')
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_password_reset_complete_page_loads(self):
+        response = self.client.get(
+            reverse('niyitegeka:passwordresetcomplete')
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_password_reset_request_valid_email(self):
+        response = self.client.post(
+            reverse('niyitegeka:passwordreset'),
+            {'email': 'peter@example.com'}
+        )
+        self.assertRedirects(
+            response,
+            '/auth/password-reset/done/'
+        )
+
+    def test_password_reset_request_invalid_email(self):
+        response = self.client.post(
+            reverse('niyitegeka:passwordreset'),
+            {'email': 'notexist@example.com'}
+        )
+        self.assertRedirects(
+            response,
+            '/auth/password-reset/done/'
+        )
+
+
+class BruteForceProtectionTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+
+    def test_successful_login_resets_attempts(self):
+        self.client.post(reverse('niyitegeka:login'), {
+            'username': 'peter',
+            'password': 'wrongpassword',
+        })
+        self.client.post(reverse('niyitegeka:login'), {
+            'username': 'peter',
+            'password': 'Secure@1234',
+        })
+        attempt = LoginAttempt.objects.get(username='peter')
+        self.assertEqual(attempt.attempts, 0)
+
+    def test_failed_login_increments_attempts(self):
+        self.client.post(reverse('niyitegeka:login'), {
+            'username': 'peter',
+            'password': 'wrongpassword',
+        })
+        attempt = LoginAttempt.objects.get(username='peter')
+        self.assertEqual(attempt.attempts, 1)
+
+    def test_account_locked_after_five_attempts(self):
+        for i in range(5):
+            self.client.post(reverse('niyitegeka:login'), {
+                'username': 'peter',
+                'password': 'wrongpassword',
+            })
+        attempt = LoginAttempt.objects.get(username='peter')
+        self.assertTrue(attempt.is_locked())
+
+    def test_locked_account_cannot_login(self):
+        LoginAttempt.objects.create(
+            username='peter',
+            attempts=5,
+            locked_until=timezone.now() + timezone.timedelta(minutes=10)
+        )
+        response = self.client.post(reverse('niyitegeka:login'), {
+            'username': 'peter',
+            'password': 'Secure@1234',
+        })
+        self.assertEqual(response.status_code, 200)
+
+    def test_expired_lock_allows_login(self):
+        LoginAttempt.objects.create(
+            username='peter',
+            attempts=5,
+            locked_until=timezone.now() - timezone.timedelta(minutes=1)
+        )
+        response = self.client.post(reverse('niyitegeka:login'), {
+            'username': 'peter',
+            'password': 'Secure@1234',
+        })
+        self.assertRedirects(response, reverse('niyitegeka:dashboard'))

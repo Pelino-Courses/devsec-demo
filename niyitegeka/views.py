@@ -10,7 +10,7 @@ from .forms import (
     ProfileUpdateForm,
     CustomPasswordChangeForm,
 )
-from .models import Profile
+from .models import Profile, LoginAttempt
 from .decorators import staff_required
 
 
@@ -33,10 +33,41 @@ def register(request):
 def loginview(request):
     if request.method == 'POST':
         form = LoginForm(request, data=request.POST)
+        username = request.POST.get('username', '')
+        attempt, created = LoginAttempt.objects.get_or_create(
+            username=username
+        )
+        if attempt.is_locked():
+            messages.error(
+                request,
+                'Account temporarily locked due to too many failed attempts. '
+                'Please try again in 10 minutes.'
+            )
+            return render(
+                request,
+                'niyitegeka/login.html',
+                {'form': form}
+            )
         if form.is_valid():
             user = form.get_user()
+            attempt.reset()
             login(request, user)
             return redirect('niyitegeka:dashboard')
+        else:
+            attempt.increment()
+            remaining = 5 - attempt.attempts
+            if remaining > 0:
+                messages.error(
+                    request,
+                    f'Invalid credentials. {remaining} attempts remaining '
+                    f'before account is locked.'
+                )
+            else:
+                messages.error(
+                    request,
+                    'Account locked for 10 minutes due to too many '
+                    'failed attempts.'
+                )
     else:
         form = LoginForm()
     return render(request, 'niyitegeka/login.html', {'form': form})
