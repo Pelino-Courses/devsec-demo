@@ -1,6 +1,11 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+
+from .models import Profile
+
+
+User = get_user_model()
 
 
 class AuthenticationFlowTests(TestCase):
@@ -93,3 +98,28 @@ class AuthenticationFlowTests(TestCase):
 			reverse('webwi:dashboard'),
 			fetch_redirect_response=False,
 		)
+
+	def test_profile_update_changes_user_and_profile_fields(self):
+		self.client.login(username=self.username, password=self.password)
+
+		response = self.client.post(
+			reverse('webwi:profile'),
+			{
+				'first_name': 'Alice',
+				'last_name': 'Tester',
+				'email': 'alice@example.com',
+				'display_name': 'alice-t',
+				'bio': 'Security-focused student.',
+			},
+			follow=True,
+		)
+
+		self.assertRedirects(response, reverse('webwi:profile'))
+
+		self.user.refresh_from_db()
+		profile = Profile.objects.get(user=self.user)
+		self.assertEqual(self.user.first_name, 'Alice')
+		self.assertEqual(self.user.last_name, 'Tester')
+		self.assertEqual(self.user.email, 'alice@example.com')
+		self.assertEqual(profile.display_name, 'alice-t')
+		self.assertEqual(profile.bio, 'Security-focused student.')

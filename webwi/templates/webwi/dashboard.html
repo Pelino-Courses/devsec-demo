@@ -19,7 +19,9 @@
     <div class="quick-links">
         <a href="{% url 'webwi:profile' %}">Update profile details</a>
         <a href="{% url 'webwi:password_change' %}">Change account password</a>
+        {% if request.user.is_staff %}
         <a href="/admin/">Open Django admin</a>
+        {% endif %}
     </div>
 
     <div class="actions">

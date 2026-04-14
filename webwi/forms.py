@@ -1,15 +1,18 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
-from django.contrib.auth.models import User
 
 from .models import Profile
+
+
+UserModel = get_user_model()
 
 
 class RegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
 
     class Meta(UserCreationForm.Meta):
-        model = User
+        model = UserModel
         fields = ('username', 'email', 'password1', 'password2')
 
     def save(self, commit=True):
