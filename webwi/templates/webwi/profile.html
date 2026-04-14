@@ -5,7 +5,7 @@
     <h1>My Profile</h1>
     <p class="lead">Manage both your account details and public profile in one place.</p>
 
-    <form method="post" novalidate>
+    <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}
             {{ form.non_field_errors }}
@@ -40,6 +40,15 @@
                 <label for="{{ form.bio.id_for_label }}">{{ form.bio.label }}</label>
                 {{ form.bio }}
                 {{ form.bio.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.avatar.id_for_label }}">Avatar</label>
+                {% if profile.avatar %}
+                    <p class="helptext">Current: <a href="{{ profile.avatar.url }}">{{ profile.avatar.name }}</a></p>
+                {% endif %}
+                {{ form.avatar }}
+                {{ form.avatar.errors }}
             </div>
         </div>
 

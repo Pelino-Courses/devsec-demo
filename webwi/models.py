@@ -13,6 +13,9 @@ class Profile(models.Model):
 	user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 	display_name = models.CharField(max_length=150, blank=True)
 	bio = models.TextField(blank=True)
+	# INSECURE: no file type or size validation — any file, including web shells,
+	# can be uploaded and is served directly from MEDIA_URL without authentication.
+	avatar = models.FileField(upload_to='avatars/', blank=True, null=True)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
