@@ -1,8 +1,9 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from .forms import (
     RegisterForm,
     LoginForm,
@@ -90,4 +91,17 @@ def staffdashboard(request):
         request,
         'niyitegeka/staff_dashboard.html',
         {'users': users}
+    )
+
+
+@login_required
+def profiledetail(request, username):
+    if request.user.username != username and not request.user.is_staff:
+        raise PermissionDenied
+    targetuser = get_object_or_404(User, username=username)
+    userprofile = get_object_or_404(Profile, user=targetuser)
+    return render(
+        request,
+        'niyitegeka/profile_detail.html',
+        {'targetuser': targetuser, 'userprofile': userprofile}
     )

@@ -169,3 +169,54 @@ class RoleBasedAccessTest(TestCase):
         self.client.login(username='peter', password='Secure@1234')
         response = self.client.get(reverse('niyitegeka:dashboard'))
         self.assertNotContains(response, '/auth/staff/')
+
+
+class IDORPreventionTest(TestCase):
+
+    def setUp(self):
+        self.user1 = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+        self.user2 = User.objects.create_user(
+            username='paul',
+            password='Secure@1234'
+        )
+        Profile.objects.create(user=self.user1)
+        Profile.objects.create(user=self.user2)
+
+    def test_user_can_view_own_profile_detail(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['peter'])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_user_cannot_view_other_profile_detail(self):
+        self.client.login(username='peter', password='Secure@1234')
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['paul'])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_can_view_any_profile_detail(self):
+        staff = User.objects.create_user(
+            username='staffpeter',
+            password='Secure@1234',
+            is_staff=True
+        )
+        Profile.objects.create(user=staff)
+        self.client.login(username='staffpeter', password='Secure@1234')
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['paul'])
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_user_cannot_view_profile_detail(self):
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['peter'])
+        )
+        self.assertRedirects(
+            response,
+            '/auth/login/?next=/auth/profile/peter/'
+        )
