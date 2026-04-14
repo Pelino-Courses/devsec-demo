@@ -388,3 +388,46 @@ class CSRFHandlingTestCase(TestCase):
     def test_unauthenticated_access_redirects(self):
         response = self.client.post(reverse('irumvajeanmarie:contact'), {'message': 'Hi'})
         self.assertRedirects(response, '/irumvajeanmarie/login/?next=/irumvajeanmarie/contact/')
+
+
+class SafeRedirectTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+
+    def test_login_with_safe_internal_next_parameter_redirects_correctly(self):
+        response = self.client.post(
+            f"{reverse('irumvajeanmarie:login')}?next=/irumvajeanmarie/dashboard/",
+            {'username': 'testuser', 'password': 'StrongPass123!'}
+        )
+        self.assertRedirects(response, '/irumvajeanmarie/dashboard/', fetch_redirect_response=False)
+
+    def test_login_with_external_next_parameter_falls_back_to_dashboard(self):
+        response = self.client.post(
+            f"{reverse('irumvajeanmarie:login')}?next=http://evil.com",
+            {'username': 'testuser', 'password': 'StrongPass123!'}
+        )
+        self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
+
+    def test_login_with_protocol_relative_next_parameter_falls_back_to_dashboard(self):
+        response = self.client.post(
+            f"{reverse('irumvajeanmarie:login')}?next=//evil.com",
+            {'username': 'testuser', 'password': 'StrongPass123!'}
+        )
+        self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
+
+    def test_normal_login_without_next_parameter_redirects_to_dashboard(self):
+        response = self.client.post(reverse('irumvajeanmarie:login'), {
+            'username': 'testuser', 'password': 'StrongPass123!'
+        })
+        self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
+        
+    def test_logout_with_unsafe_next_parameter_falls_back(self):
+        self.client.login(username='testuser', password='StrongPass123!')
+        response = self.client.get(
+            f"{reverse('irumvajeanmarie:logout')}?next=http://evil.com"
+        )
+        self.assertRedirects(response, reverse('irumvajeanmarie:login'), fetch_redirect_response=False)

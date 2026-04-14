@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.contrib import messages
 from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
@@ -66,6 +67,9 @@ def login_view(request):
                 LoginAttempt.objects.filter(username=username, was_successful=False).delete()
 
             messages.success(request, f'Welcome back, {user.username}!')
+            next_url = request.POST.get('next') or request.GET.get('next')
+            if next_url and url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
             return redirect('irumvajeanmarie:dashboard')
         else:
             if username:
@@ -95,6 +99,9 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
     return redirect('irumvajeanmarie:login')
 
 
