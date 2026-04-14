@@ -1,0 +1,36 @@
+{% extends "tresor/base.html" %}
+{% block title %}Instructor Area{% endblock %}
+{% block content %}
+<h2>Instructor Area</h2>
+<p>Registered users: <strong>{{ users.count }}</strong></p>
+<table>
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Joined</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr>
+            <td>{{ u.username }}</td>
+            <td>{{ u.get_full_name|default:"-" }}</td>
+            <td>{{ u.email }}</td>
+            <td>
+                {% if u.is_staff %}
+                    <span class="role-badge role-instructor">Staff</span>
+                {% elif u.groups.filter.name == 'instructor' %}
+                    <span class="role-badge role-instructor">Instructor</span>
+                {% else %}
+                    <span class="role-badge role-student">Student</span>
+                {% endif %}
+            </td>
+            <td>{{ u.date_joined|date:"Y-m-d" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
