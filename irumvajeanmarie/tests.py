@@ -1,6 +1,9 @@
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
 from .models import Profile
 
 
@@ -247,3 +250,38 @@ class IDORTestCase(TestCase):
         self.assertRedirects(response, reverse('irumvajeanmarie:profile'))
         profile = Profile.objects.get(user=self.user1)
         self.assertEqual(profile.bio, 'My updated bio')
+
+
+class PasswordResetTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+
+    def test_password_reset_page_loads(self):
+        response = self.client.get(reverse('irumvajeanmarie:password_reset'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_valid_email_submission_succeeds(self):
+        response = self.client.post(reverse('irumvajeanmarie:password_reset'), {
+            'email': 'test@example.com'
+        })
+        self.assertRedirects(response, reverse('irumvajeanmarie:password_reset_done'))
+
+    def test_invalid_email_submission_succeeds(self):
+        response = self.client.post(reverse('irumvajeanmarie:password_reset'), {
+            'email': 'nonexistent@example.com'
+        })
+        self.assertRedirects(response, reverse('irumvajeanmarie:password_reset_done'))
+
+    def test_reset_confirm_page_loads_with_valid_token(self):
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        response = self.client.get(
+            reverse('irumvajeanmarie:password_reset_confirm',
+                    kwargs={'uidb64': uidb64, 'token': token}),
+            follow=True
+        )
+        self.assertEqual(response.status_code, 200)

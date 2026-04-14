@@ -76,3 +76,5 @@ STATIC_URL = 'static/'
 
 LOGIN_URL = '/irumvajeanmarie/login/'
 LOGIN_REDIRECT_URL = '/irumvajeanmarie/dashboard/'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
