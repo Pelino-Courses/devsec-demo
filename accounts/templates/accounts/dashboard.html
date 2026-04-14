@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - DevSec Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f4f6f9; }
+
+        .navbar {
+            background: #343a40; color: white; padding: 15px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .navbar h1 { font-size: 20px; }
+        .navbar form button {
+            background: #dc3545; color: white; border: none;
+            padding: 8px 16px; border-radius: 4px; cursor: pointer;
+        }
+
+        .container { max-width: 900px; margin: 40px auto; padding: 20px; }
+
+        .welcome-card {
+            background: white; border-radius: 8px; padding: 30px;
+            margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .welcome-card h2 { margin-bottom: 8px; color: #343a40; }
+        .badge {
+            display: inline-block; padding: 4px 12px;
+            background: #007bff; color: white;
+            border-radius: 20px; font-size: 13px; margin-top: 8px;
+        }
+
+        .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
+        .card {
+            background: white; border-radius: 8px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center;
+        }
+        .card .icon { font-size: 36px; margin-bottom: 10px; }
+        .card h3 { font-size: 14px; color: #6c757d; margin-bottom: 6px; }
+        .card p { font-size: 22px; font-weight: bold; color: #343a40; }
+
+        .info-card {
+            background: white; border-radius: 8px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .info-card h3 { margin-bottom: 16px; color: #343a40; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f4f6f9; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #6c757d; font-size: 14px; }
+        .info-value { font-weight: bold; color: #343a40; font-size: 14px; }
+
+        .alert { padding: 10px 16px; margin-bottom: 16px; border-radius: 4px; }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <h1>🔐 DevSec Demo</h1>
+        <div>
+            <span style="margin-right:16px;">👤 {{ user.username }}</span>
+            <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container">
+
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <div class="welcome-card">
+            <h2>👋 Welcome back, {{ user.username }}!</h2>
+            <p style="color:#6c757d;">You are securely logged in to the DevSec Demo platform.</p>
+            <span class="badge">{{ profile.role|title }}</span>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <div class="icon">👤</div>
+                <h3>Username</h3>
+                <p>{{ user.username }}</p>
+            </div>
+            <div class="card">
+                <div class="icon">🛡️</div>
+                <h3>Role</h3>
+                <p>{{ profile.role|title }}</p>
+            </div>
+            <div class="card">
+                <div class="icon">📅</div>
+                <h3>Member Since</h3>
+                <p style="font-size:14px;">{{ user.date_joined|date:"M d, Y" }}</p>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h3>📋 Account Information</h3>
+            <div class="info-row">
+                <span class="info-label">Full Name</span>
+                <span class="info-value">{{ user.get_full_name|default:"Not set" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">{{ user.email|default:"Not set" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Account Status</span>
+                <span class="info-value" style="color: #28a745;">✅ Active</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Last Login</span>
+                <span class="info-value">{{ user.last_login|date:"M d, Y H:i" }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Staff Status</span>
+                <span class="info-value">{{ user.is_staff|yesno:"Yes,No" }}</span>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
