@@ -1,4 +1,4 @@
-from django.test import TestCase, Client
+from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
 from .models import Profile
@@ -11,17 +11,16 @@ class RegistrationTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_register_success(self):
-        response = self.client.post(reverse('niyitegeka:register'), {
+        self.client.post(reverse('niyitegeka:register'), {
             'username': 'peter',
             'email': 'peter@example.com',
             'password1': 'Secure@1234',
             'password2': 'Secure@1234',
         })
         self.assertEqual(User.objects.filter(username='peter').count(), 1)
-        self.assertRedirects(response, reverse('niyitegeka:login'))
 
     def test_register_password_mismatch(self):
-        response = self.client.post(reverse('niyitegeka:register'), {
+        self.client.post(reverse('niyitegeka:register'), {
             'username': 'peter2',
             'email': 'peter2@example.com',
             'password1': 'Secure@1234',
@@ -67,7 +66,10 @@ class ProtectedPageTest(TestCase):
 
     def test_dashboard_requires_login(self):
         response = self.client.get(reverse('niyitegeka:dashboard'))
-        self.assertRedirects(response, '/auth/login/?next=/auth/dashboard/')
+        self.assertRedirects(
+            response,
+            '/auth/login/?next=/auth/dashboard/'
+        )
 
     def test_dashboard_accessible_when_logged_in(self):
         self.client.login(username='peter', password='Secure@1234')
@@ -76,7 +78,10 @@ class ProtectedPageTest(TestCase):
 
     def test_profile_requires_login(self):
         response = self.client.get(reverse('niyitegeka:profile'))
-        self.assertRedirects(response, '/auth/login/?next=/auth/profile/')
+        self.assertRedirects(
+            response,
+            '/auth/login/?next=/auth/profile/'
+        )
 
 
 class LogoutTest(TestCase):

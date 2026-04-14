@@ -1,8 +1,13 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .forms import RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm
+from .forms import (
+    RegisterForm,
+    LoginForm,
+    ProfileUpdateForm,
+    CustomPasswordChangeForm,
+)
 from .models import Profile
 
 
@@ -12,7 +17,10 @@ def register(request):
         if form.is_valid():
             user = form.save()
             Profile.objects.create(user=user)
-            messages.success(request, 'Account created successfully. Please log in.')
+            messages.success(
+                request,
+                'Account created successfully. Please log in.'
+            )
             return redirect('niyitegeka:login')
     else:
         form = RegisterForm()
@@ -66,4 +74,8 @@ def passwordchange(request):
             return redirect('niyitegeka:dashboard')
     else:
         form = CustomPasswordChangeForm(request.user)
-    return render(request, 'niyitegeka/password_change.html', {'form': form})
+    return render(
+        request,
+        'niyitegeka/password_change.html',
+        {'form': form}
+    )
