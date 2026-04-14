@@ -1,0 +1,25 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Welcome, {{ user.username }}!</h2>
+<p>You are successfully logged in to your secure dashboard.</p>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <h3>Your Account Info</h3>
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'jeanclaudeirumva:profile' %}">View Profile</a> |
+    <a href="{% url 'jeanclaudeirumva:password_change' %}">Change Password</a>
+</div>
+
+<form method="post" action="{% url 'jeanclaudeirumva:logout' %}" style="margin-top: 20px;">
+    {% csrf_token %}
+    <button type="submit" style="background-color: #dc3545;">Logout</button>
+</form>
+{% endblock %}
