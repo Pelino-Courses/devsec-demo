@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 from dotenv import load_dotenv
 
@@ -25,11 +26,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECURITY EXCEPTION: DJANGO_SECRET_KEY architecture limit omitted dangerously!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 
 
 # Application definition
@@ -41,7 +44,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'alpha',
 ]
+
+LOGIN_REDIRECT_URL = '/alpha/profile/'
+LOGOUT_REDIRECT_URL = '/alpha/login/'
+LOGIN_URL = '/alpha/login/'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -119,3 +129,46 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Audit Trailing Observability
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'audit_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'audit.log',
+        },
+    },
+    'loggers': {
+        'security.audit': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ----------------------------------------
+# PRODUCTION SECURITY EXPLICIT HARDENING
+# ----------------------------------------
+# MIME spoofing and Clickjacking bounds natively isolated logically
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Transport HTTPS explicitly mapping environments gracefully avoiding physical local crashes
+SECURE_SSL_REDIRECT = os.environ.get('DJANGO_SECURE_SSL_REDIRECT', 'False') == 'True'
+SESSION_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+CSRF_COOKIE_SECURE = os.environ.get('DJANGO_SECURE_COOKIES', 'False') == 'True'
+
+# HTTP Strict Transport Security limits bounding cryptographic matrix headers naturally
+SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_SECURE_HSTS_SECONDS', 0))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
