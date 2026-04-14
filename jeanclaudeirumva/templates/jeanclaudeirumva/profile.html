@@ -1,0 +1,47 @@
+{% extends 'jeanclaudeirumva/base.html' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<h2>My Profile</h2>
+
+<div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>First Name:</strong> {{ user.first_name|default:"Not set" }}</p>
+    <p><strong>Last Name:</strong> {{ user.last_name|default:"Not set" }}</p>
+    <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+    <p><strong>Last login:</strong> {{ user.last_login|date:"F d, Y H:i" }}</p>
+    <p><strong>Bio:</strong> {{ profile.bio|default:"No bio yet." }}</p>
+</div>
+
+<!-- Bio update form - bio is always escaped by Django template engine -->
+<div style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <h3>Update Bio</h3>
+    <p style="font-size: 0.9em; color: #666;">
+        Plain text only. HTML and scripts are not allowed.
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="form-group">
+            <label>{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <ul class="errorlist">
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit">Update Bio</button>
+    </form>
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="{% url 'jeanclaudeirumva:dashboard' %}">Back to Dashboard</a> |
+    <a href="{% url 'jeanclaudeirumva:password_change' %}">Change Password</a>
+</div>
+{% endblock %}
