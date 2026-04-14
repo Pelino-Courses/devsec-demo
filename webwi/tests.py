@@ -255,3 +255,107 @@ class IDORPreventionTests(TestCase):
 		response = self.client.get(reverse('webwi:profile'))
 		self.assertEqual(response.status_code, 302)
 		self.assertIn(reverse('webwi:login'), response['Location'])
+
+
+class PasswordResetFlowTests(TestCase):
+	"""Verify the secure password reset workflow.
+
+	Covers: request page, user-enumeration prevention, email delivery,
+	token validation, new-password submission, and the completion page.
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user = User.objects.create_user(
+			username='resetuser',
+			email='reset@example.com',
+			password=self.password,
+		)
+
+	def test_password_reset_request_page_loads(self):
+		response = self.client.get(reverse('webwi:password_reset'))
+		self.assertEqual(response.status_code, 200)
+
+	def test_password_reset_done_page_loads(self):
+		response = self.client.get(reverse('webwi:password_reset_done'))
+		self.assertEqual(response.status_code, 200)
+
+	def test_password_reset_request_with_known_email_redirects_to_done(self):
+		response = self.client.post(
+			reverse('webwi:password_reset'),
+			{'email': 'reset@example.com'},
+		)
+		self.assertRedirects(
+			response,
+			reverse('webwi:password_reset_done'),
+			fetch_redirect_response=False,
+		)
+
+	def test_password_reset_request_with_unknown_email_also_redirects_to_done(self):
+		"""Unknown email must produce the same redirect as a known one to prevent user enumeration."""
+		response = self.client.post(
+			reverse('webwi:password_reset'),
+			{'email': 'nobody@example.com'},
+		)
+		self.assertRedirects(
+			response,
+			reverse('webwi:password_reset_done'),
+			fetch_redirect_response=False,
+		)
+
+	def test_password_reset_sends_email_for_known_address(self):
+		from django.core import mail
+		self.client.post(reverse('webwi:password_reset'), {'email': 'reset@example.com'})
+		self.assertEqual(len(mail.outbox), 1)
+		self.assertIn('reset@example.com', mail.outbox[0].to)
+
+	def test_password_reset_does_not_send_email_for_unknown_address(self):
+		"""No email must be sent for an address that has no account (silent non-disclosure)."""
+		from django.core import mail
+		self.client.post(reverse('webwi:password_reset'), {'email': 'nobody@example.com'})
+		self.assertEqual(len(mail.outbox), 0)
+
+	def test_password_reset_confirm_with_valid_token_renders_form(self):
+		from django.contrib.auth.tokens import default_token_generator
+		from django.utils.encoding import force_bytes
+		from django.utils.http import urlsafe_base64_encode
+
+		uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+		token = default_token_generator.make_token(self.user)
+		url = reverse('webwi:password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+		response = self.client.get(url, follow=True)
+		self.assertEqual(response.status_code, 200)
+		self.assertTrue(response.context['validlink'])
+
+	def test_password_reset_confirm_with_invalid_token_shows_invalid_link(self):
+		from django.utils.encoding import force_bytes
+		from django.utils.http import urlsafe_base64_encode
+
+		uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+		url = reverse('webwi:password_reset_confirm', kwargs={'uidb64': uid, 'token': 'invalid-token'})
+		response = self.client.get(url)
+		self.assertEqual(response.status_code, 200)
+		self.assertFalse(response.context['validlink'])
+
+	def test_password_reset_complete_sets_new_password(self):
+		from django.contrib.auth.tokens import default_token_generator
+		from django.utils.encoding import force_bytes
+		from django.utils.http import urlsafe_base64_encode
+
+		uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+		token = default_token_generator.make_token(self.user)
+
+		# First GET stores the token in the session and redirects to the set-password URL
+		confirm_url = reverse('webwi:password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+		self.client.get(confirm_url, follow=True)
+
+		# POST the new password to the session-bound set-password URL
+		set_url = reverse('webwi:password_reset_confirm', kwargs={'uidb64': uid, 'token': 'set-password'})
+		response = self.client.post(
+			set_url,
+			{'new_password1': 'BrandNewSafePass123!', 'new_password2': 'BrandNewSafePass123!'},
+			follow=True,
+		)
+		self.assertRedirects(response, reverse('webwi:password_reset_complete'))
+		self.user.refresh_from_db()
+		self.assertTrue(self.user.check_password('BrandNewSafePass123!'))

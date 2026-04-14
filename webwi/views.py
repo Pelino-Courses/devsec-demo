@@ -1,13 +1,22 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeDoneView, PasswordChangeView
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordChangeDoneView,
+    PasswordChangeView,
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+)
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
 
-from .forms import LoginForm, PasswordUpdateForm, ProfileForm, RegistrationForm
+from .forms import LoginForm, PasswordResetRequestForm, PasswordResetSetForm, PasswordUpdateForm, ProfileForm, RegistrationForm
 from .models import Profile
 
 
@@ -118,6 +127,32 @@ class UserDirectoryView(PrivilegedAccessMixin, TemplateView):
         user_model = get_user_model()
         context['users'] = user_model.objects.order_by('username').select_related('profile')
         return context
+
+
+class UserPasswordResetView(PasswordResetView):
+    form_class = PasswordResetRequestForm
+    template_name = 'webwi/password_reset.html'
+    email_template_name = 'webwi/password_reset_email.txt'
+    subject_template_name = 'webwi/password_reset_subject.txt'
+    success_url = reverse_lazy('webwi:password_reset_done')
+    extra_context = {'page_title': 'Reset Password'}
+
+
+class UserPasswordResetDoneView(PasswordResetDoneView):
+    template_name = 'webwi/password_reset_done.html'
+    extra_context = {'page_title': 'Check Your Email'}
+
+
+class UserPasswordResetConfirmView(PasswordResetConfirmView):
+    form_class = PasswordResetSetForm
+    template_name = 'webwi/password_reset_confirm.html'
+    success_url = reverse_lazy('webwi:password_reset_complete')
+    extra_context = {'page_title': 'Set New Password'}
+
+
+class UserPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = 'webwi/password_reset_complete.html'
+    extra_context = {'page_title': 'Password Reset Complete'}
 
 
 def home_redirect(request):

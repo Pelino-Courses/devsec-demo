@@ -126,3 +126,13 @@ LOGIN_REDIRECT_URL = 'webwi:dashboard'
 LOGOUT_REDIRECT_URL = 'webwi:login'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Email — defaults to console for development; set EMAIL_BACKEND env var in production
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@uas.local')
+
+# Password-reset tokens expire after 1 hour
+PASSWORD_RESET_TIMEOUT = 3600

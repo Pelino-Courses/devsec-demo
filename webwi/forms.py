@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, PasswordResetForm, SetPasswordForm, UserCreationForm
 
 from .models import Profile
 
@@ -43,6 +43,22 @@ class PasswordUpdateForm(PasswordChangeForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['old_password'].widget.attrs.update({'class': 'input', 'placeholder': 'Current password'})
+        self.fields['new_password1'].widget.attrs.update({'class': 'input', 'placeholder': 'New password'})
+        self.fields['new_password2'].widget.attrs.update({'class': 'input', 'placeholder': 'Repeat new password'})
+
+
+class PasswordResetRequestForm(PasswordResetForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['email'].widget.attrs.update({
+            'class': 'input',
+            'placeholder': 'Enter your account email',
+        })
+
+
+class PasswordResetSetForm(SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.fields['new_password1'].widget.attrs.update({'class': 'input', 'placeholder': 'New password'})
         self.fields['new_password2'].widget.attrs.update({'class': 'input', 'placeholder': 'Repeat new password'})
 

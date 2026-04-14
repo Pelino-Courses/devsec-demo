@@ -27,6 +27,9 @@
             <button class="btn" type="submit">Login</button>
             <a class="btn-ghost" href="{% url 'webwi:register' %}">Create account</a>
         </div>
+        <p class="helptext" style="margin-top:1rem;">
+            <a href="{% url 'webwi:password_reset' %}">Forgot your password?</a>
+        </p>
     </form>
 </section>
 {% endblock %}

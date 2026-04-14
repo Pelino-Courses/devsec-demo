@@ -8,6 +8,10 @@ from .views import (
     UserLogoutView,
     UserPasswordChangeDoneView,
     UserPasswordChangeView,
+    UserPasswordResetCompleteView,
+    UserPasswordResetConfirmView,
+    UserPasswordResetDoneView,
+    UserPasswordResetView,
     UserRegistrationView,
     home_redirect,
 )
@@ -24,4 +28,8 @@ urlpatterns = [
     path('password/change/', UserPasswordChangeView.as_view(), name='password_change'),
     path('password/change/done/', UserPasswordChangeDoneView.as_view(), name='password_change_done'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('password/reset/', UserPasswordResetView.as_view(), name='password_reset'),
+    path('password/reset/done/', UserPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('password/reset/<uidb64>/<token>/', UserPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('password/reset/complete/', UserPasswordResetCompleteView.as_view(), name='password_reset_complete'),
 ]
