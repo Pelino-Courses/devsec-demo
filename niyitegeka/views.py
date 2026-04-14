@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -15,6 +16,15 @@ from .forms import (
 from .models import Profile, LoginAttempt
 from .decorators import staff_required
 
+audit = logging.getLogger('niyitegeka.audit')
+
+
+def get_client_ip(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
 
 def register(request):
     if request.method == 'POST':
@@ -22,6 +32,11 @@ def register(request):
         if form.is_valid():
             user = form.save()
             Profile.objects.create(user=user)
+            audit.info(
+                'REGISTRATION username=%s ip=%s',
+                user.username,
+                get_client_ip(request)
+            )
             messages.success(
                 request,
                 'Account created successfully. Please log in.'
@@ -40,6 +55,11 @@ def loginview(request):
             username=username
         )
         if attempt.is_locked():
+            audit.warning(
+                'LOGIN_BLOCKED username=%s ip=%s',
+                username,
+                get_client_ip(request)
+            )
             messages.error(
                 request,
                 'Account temporarily locked due to too many failed attempts. '
@@ -54,6 +74,11 @@ def loginview(request):
             user = form.get_user()
             attempt.reset()
             login(request, user)
+            audit.info(
+                'LOGIN_SUCCESS username=%s ip=%s',
+                user.username,
+                get_client_ip(request)
+            )
             next_url = request.POST.get(
                 'next', request.GET.get('next', '')
             )
@@ -67,6 +92,12 @@ def loginview(request):
         else:
             attempt.increment()
             remaining = 5 - attempt.attempts
+            audit.warning(
+                'LOGIN_FAILURE username=%s ip=%s attempts=%s',
+                username,
+                get_client_ip(request),
+                attempt.attempts
+            )
             if remaining > 0:
                 messages.error(
                     request,
@@ -74,6 +105,11 @@ def loginview(request):
                     f'before account is locked.'
                 )
             else:
+                audit.warning(
+                    'ACCOUNT_LOCKED username=%s ip=%s',
+                    username,
+                    get_client_ip(request)
+                )
                 messages.error(
                     request,
                     'Account locked for 10 minutes due to too many '
@@ -85,6 +121,12 @@ def loginview(request):
 
 
 def logoutview(request):
+    if request.user.is_authenticated:
+        audit.info(
+            'LOGOUT username=%s ip=%s',
+            request.user.username,
+            get_client_ip(request)
+        )
     logout(request)
     return redirect('niyitegeka:login')
 
@@ -115,6 +157,11 @@ def passwordchange(request):
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
+            audit.info(
+                'PASSWORD_CHANGE username=%s ip=%s',
+                request.user.username,
+                get_client_ip(request)
+            )
             messages.success(request, 'Password changed successfully.')
             return redirect('niyitegeka:dashboard')
     else:

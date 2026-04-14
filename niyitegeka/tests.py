@@ -443,3 +443,74 @@ class OpenRedirectTest(TestCase):
             }
         )
         self.assertRedirects(response, '/auth/dashboard/')
+
+
+class AuditLoggingTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='newpeter',
+            password='Secure@1234'
+        )
+        Profile.objects.create(user=self.user)
+
+    def test_login_success_is_logged(self):
+        with self.assertLogs('niyitegeka.audit', level='INFO') as cm:
+            self.client.post(reverse('niyitegeka:login'), {
+                'username': 'newpeter',
+                'password': 'Secure@1234',
+            })
+        self.assertTrue(
+            any('LOGIN_SUCCESS' in line for line in cm.output)
+        )
+
+    def test_login_failure_is_logged(self):
+        with self.assertLogs('niyitegeka.audit', level='WARNING') as cm:
+            self.client.post(reverse('niyitegeka:login'), {
+                'username': 'newpeter',
+                'password': 'wrongpassword',
+            })
+        self.assertTrue(
+            any('LOGIN_FAILURE' in line for line in cm.output)
+        )
+
+    def test_logout_is_logged(self):
+        self.client.login(username='newpeter', password='Secure@1234')
+        with self.assertLogs('niyitegeka.audit', level='INFO') as cm:
+            self.client.get(reverse('niyitegeka:logout'))
+        self.assertTrue(
+            any('LOGOUT' in line for line in cm.output)
+        )
+
+    def test_registration_is_logged(self):
+        with self.assertLogs('niyitegeka.audit', level='INFO') as cm:
+            self.client.post(reverse('niyitegeka:register'), {
+                'username': 'brandnewpeter',
+                'email': 'brandnewpeter@example.com',
+                'password1': 'Secure@1234',
+                'password2': 'Secure@1234',
+            })
+        self.assertTrue(
+            any('REGISTRATION' in line for line in cm.output)
+        )
+
+    def test_password_change_is_logged(self):
+        self.client.login(username='newpeter', password='Secure@1234')
+        with self.assertLogs('niyitegeka.audit', level='INFO') as cm:
+            self.client.post(reverse('niyitegeka:passwordchange'), {
+                'old_password': 'Secure@1234',
+                'new_password1': 'NewSecure@1234',
+                'new_password2': 'NewSecure@1234',
+            })
+        self.assertTrue(
+            any('PASSWORD_CHANGE' in line for line in cm.output)
+        )
+
+    def test_raw_password_not_in_logs(self):
+        with self.assertLogs('niyitegeka.audit', level='INFO') as cm:
+            self.client.post(reverse('niyitegeka:login'), {
+                'username': 'newpeter',
+                'password': 'Secure@1234',
+            })
+        log_output = ' '.join(cm.output)
+        self.assertNotIn('Secure@1234', log_output)
