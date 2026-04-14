@@ -29,4 +29,6 @@ urlpatterns = [
     ), name='password_reset_complete'),
     path('instructor/', views.instructor_panel, name='instructor_panel'),
     path('admin-panel/', views.admin_panel, name='admin_panel'),
+    path('contact/', views.contact_view, name='contact'),
+    path('contact-page/', views.contact_page_view, name='contact_page'),
 ]

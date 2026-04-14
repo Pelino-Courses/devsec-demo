@@ -51,3 +51,12 @@ class AccountLockout(models.Model):
 
     def __str__(self):
         return f"{self.username} locked until {self.locked_until}"
+
+
+class ContactMessage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Message from {self.user.username} at {self.created_at}"

@@ -2,11 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+import json
 from datetime import timedelta
 from .forms import RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm
-from .models import Profile, LoginAttempt, AccountLockout
+from .models import Profile, LoginAttempt, AccountLockout, ContactMessage
 from .decorators import instructor_required, admin_required
 
 
@@ -184,3 +186,24 @@ def admin_panel(request):
     return render(request, 'irumvajeanmarie/admin_panel.html', {
         'profiles': all_profiles
     })
+
+
+@login_required(login_url='irumvajeanmarie:login')
+def contact_page_view(request):
+    return render(request, 'irumvajeanmarie/contact.html')
+
+
+@login_required(login_url='irumvajeanmarie:login')
+@require_POST
+def contact_view(request):
+    try:
+        data = json.loads(request.body)
+        message = data.get('message', '').strip()
+    except Exception:
+        message = request.POST.get('message', '').strip()
+
+    if not message:
+        return JsonResponse({'status': 'error', 'message': 'Message is empty'}, status=400)
+        
+    ContactMessage.objects.create(user=request.user, message=message)
+    return JsonResponse({'status': 'success', 'message': 'Message sent successfully.'})

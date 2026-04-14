@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Profile, LoginAttempt, AccountLockout
+from .models import Profile, LoginAttempt, AccountLockout, ContactMessage
 
 
 @admin.register(Profile)
@@ -23,3 +23,10 @@ class LoginAttemptAdmin(admin.ModelAdmin):
 class AccountLockoutAdmin(admin.ModelAdmin):
     list_display = ['username', 'locked_until']
     search_fields = ['username']
+
+
+@admin.register(ContactMessage)
+class ContactMessageAdmin(admin.ModelAdmin):
+    list_display = ['user', 'created_at']
+    search_fields = ['user__username', 'message']
+    readonly_fields = ['created_at']

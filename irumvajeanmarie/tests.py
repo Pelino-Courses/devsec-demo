@@ -344,3 +344,47 @@ class BruteForceTestCase(TestCase):
         })
         self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
         self.assertFalse(AccountLockout.objects.filter(username='testuser').exists())
+
+
+class CSRFHandlingTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+
+    def test_contact_page_loads(self):
+        self.client.login(username='testuser', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:contact_page'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_post_with_valid_csrf_token_succeeds(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.login(username='testuser', password='StrongPass123!')
+        
+        resp = csrf_client.get(reverse('irumvajeanmarie:contact_page'))
+        csrftoken = resp.cookies['csrftoken'].value
+        
+        response = csrf_client.post(
+            reverse('irumvajeanmarie:contact'),
+            data={'message': 'Valid message'},
+            content_type='application/json',
+            HTTP_X_CSRFTOKEN=csrftoken
+        )
+        self.assertEqual(response.status_code, 200)
+        
+    def test_post_without_csrf_token_rejected(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.login(username='testuser', password='StrongPass123!')
+        
+        response = csrf_client.post(
+            reverse('irumvajeanmarie:contact'),
+            data={'message': 'Hacker message'},
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 403)
+        
+    def test_unauthenticated_access_redirects(self):
+        response = self.client.post(reverse('irumvajeanmarie:contact'), {'message': 'Hi'})
+        self.assertRedirects(response, '/irumvajeanmarie/login/?next=/irumvajeanmarie/contact/')
