@@ -1,0 +1,122 @@
+{% extends 'olivier/base.html' %}
+
+{% block title %}Dashboard - MUNYABUGINGO{% endblock %}
+
+{% block content %}
+<h1>WELCOME</h1>
+<p style="color: #94a3b8; font-size: 1.1rem; margin-bottom: 2.5rem;">Here is what's happening in your MUNYABUGINGO workspace today.</p>
+
+<div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+    <!-- Interactive Card 1 -->
+    <div class="glass-card interactive-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 12px; transition: transform 0.3s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div style="background: rgba(129, 140, 248, 0.2); color: #818cf8; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">NEW TREND</div>
+            <span style="color: #64748b; font-size: 0.8rem;">2h ago</span>
+        </div>
+        <h3 style="margin-bottom: 0.75rem; font-size: 1.25rem;">Global Security Trends 2026</h3>
+        <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">Explore the latest shifts in cybersecurity and automated authentication protocols for the upcoming year.</p>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <button class="btn btn-like" onclick="toggleLike(this)" style="background: none; border: 1px solid var(--glass-border); color: #94a3b8; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                <span class="heart">❤</span> <span class="count">24</span>
+            </button>
+            <button class="btn" style="flex: 1; padding: 0.5rem;">Read More</button>
+        </div>
+    </div>
+
+    <!-- Interactive Card 2 -->
+    <div class="glass-card interactive-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 12px; transition: transform 0.3s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div style="background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">ACTIVE</div>
+            <span style="color: #64748b; font-size: 0.8rem;">5h ago</span>
+        </div>
+        <h3 style="margin-bottom: 0.75rem; font-size: 1.25rem;">Project Munyabugingo v2.1</h3>
+        <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">The latest update to the dashboard core is now live. Check out the new glassmorphism theme components.</p>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <button class="btn btn-like" onclick="toggleLike(this)" style="background: none; border: 1px solid var(--glass-border); color: #94a3b8; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                <span class="heart">❤</span> <span class="count">12</span>
+            </button>
+            <button class="btn" style="flex: 1; padding: 0.5rem;">Internal Docs</button>
+        </div>
+    </div>
+
+    <!-- Interactive Card 3 -->
+    <div class="glass-card interactive-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 12px; transition: transform 0.3s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">FEATURED</div>
+            <span style="color: #64748b; font-size: 0.8rem;">Yesterday</span>
+        </div>
+        <h3 style="margin-bottom: 0.75rem; font-size: 1.25rem;">Design System Guidelines</h3>
+        <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.5rem;">How to maintain aesthetic consistency across all MUNYABUGINGO sub-applications and services.</p>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <button class="btn btn-like" onclick="toggleLike(this)" style="background: none; border: 1px solid var(--glass-border); color: #94a3b8; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease;">
+                <span class="heart">❤</span> <span class="count">58</span>
+            </button>
+            <button class="btn" style="flex: 1; padding: 0.5rem;">View Assets</button>
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; gap: 1.5rem;">
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 12px;">
+        <h3 style="margin-bottom: 0.5rem; color: #818cf8;">Quick Actions</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Manage your account settings and profile details.</p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <a href="{% url 'Munyabugingo:profile' %}" class="btn" style="text-align: center; flex: 1; min-width: 150px; margin-top: 0;">Update Profile</a>
+            <a href="{% url 'Munyabugingo:password_change' %}" class="btn" style="text-align: center; flex: 1; min-width: 150px; margin-top: 0; background: rgba(255, 255, 255, 0.1);">Change Password</a>
+            <a href="{% url 'Munyabugingo:register' %}" class="btn" style="text-align: center; flex: 1; min-width: 150px; margin-top: 0; border: 1px dashed #818cf8; background: none; color: #818cf8;">+ Register New User</a>
+        </div>
+    </div>
+    
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 1.5rem; border-radius: 12px;">
+        <h3 style="margin-bottom: 1rem;">Account Information</h3>
+        <p><strong>Username:</strong> {{ user.username }}</p>
+        <p><strong>Email:</strong> {{ user.email|default:"Not provided" }}</p>
+        <p><strong>Full Name:</strong> {{ user.get_full_name|default:"Not provided" }}</p>
+        <p><strong>Account Created:</strong> {{ user.date_joined|date:"F j, Y" }}</p>
+        <p><strong>Last Login:</strong> {{ user.last_login|date:"F j, Y g:i A" }}</p>
+    </div>
+</div>
+
+<script>
+function toggleLike(btn) {
+    const heart = btn.querySelector('.heart');
+    const countSpan = btn.querySelector('.count');
+    let count = parseInt(countSpan.innerText);
+    
+    if (btn.classList.contains('liked')) {
+        btn.classList.remove('liked');
+        btn.style.color = '#94a3b8';
+        btn.style.borderColor = 'var(--glass-border)';
+        btn.style.background = 'none';
+        countSpan.innerText = count - 1;
+        showToast("Unliked successfully", "info");
+    } else {
+        btn.classList.add('liked');
+        btn.style.color = '#ef4444';
+        btn.style.borderColor = '#ef4444';
+        btn.style.background = 'rgba(239, 68, 68, 0.1)';
+        countSpan.innerText = count + 1;
+        showToast("Content Liked!", "success");
+        
+        // Simple animation
+        heart.animate([
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.5)' },
+            { transform: 'scale(1)' }
+        ], { duration: 300 });
+    }
+}
+</script>
+
+<style>
+.interactive-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(129, 140, 248, 0.4) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+.btn-like {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+</style>
+{% endblock %}

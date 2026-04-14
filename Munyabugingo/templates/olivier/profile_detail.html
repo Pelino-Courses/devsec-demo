@@ -1,0 +1,41 @@
+{% extends 'olivier/base.html' %}
+
+{% block title %}Profile Detail - MUNYABUGINGO{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1>User Profile</h1>
+    <span style="background: rgba(129, 140, 248, 0.2); color: #818cf8; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 600;">
+        Viewing: {{ profile.user.username }}
+    </span>
+</div>
+
+<div class="glass-card" style="padding: 2.5rem; border-radius: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
+        <div>
+            <h3 style="color: #818cf8; margin-bottom: 1rem;">Account Info</h3>
+            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-muted);">Username:</strong> {{ profile.user.username }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-muted);">Full Name:</strong> {{ profile.user.get_full_name|default:"Not provided" }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-muted);">Email:</strong> {{ profile.user.email }}</p>
+        </div>
+        
+        <div>
+            <h3 style="color: #818cf8; margin-bottom: 1rem;">Profile Info</h3>
+            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-muted);">Location:</strong> {{ profile.location|default:"Not specified" }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong style="color: var(--text-muted);">Birth Date:</strong> {{ profile.birth_date|date:"F j, Y"|default:"Not specified" }}</p>
+        </div>
+    </div>
+    
+    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+        <h3 style="color: #818cf8; margin-bottom: 1rem;">Bio</h3>
+        <p style="color: var(--text-muted); line-height: 1.8;">{{ profile.bio|default:"No biography provided." }}</p>
+    </div>
+</div>
+
+<div style="margin-top: 2rem; display: flex; gap: 1rem;">
+    {% if profile.user == request.user %}
+        <a href="{% url 'Munyabugingo:profile' %}" class="btn">Edit My Profile</a>
+    {% endif %}
+    <a href="{% url 'Munyabugingo:dashboard' %}" class="btn" style="background: rgba(255, 255, 255, 0.1);">Back to Dashboard</a>
+</div>
+{% endblock %}
