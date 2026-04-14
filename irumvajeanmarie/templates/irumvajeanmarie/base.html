@@ -19,6 +19,10 @@
     .card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
     label { font-weight: bold; }
     .error-list { color: red; font-size: 0.9em; }
+    .role-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
+    .role-student { background: #d4edda; color: #155724; }
+    .role-instructor { background: #fff3cd; color: #856404; }
+    .role-admin { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
@@ -27,6 +31,14 @@
       <a href="{% url 'irumvajeanmarie:dashboard' %}">Dashboard</a>
       <a href="{% url 'irumvajeanmarie:profile' %}">Profile</a>
       <a href="{% url 'irumvajeanmarie:password_change' %}">Change Password</a>
+      {% with profile=request.user.profile %}
+        {% if profile.role == 'instructor' or profile.role == 'admin' %}
+          <a href="{% url 'irumvajeanmarie:instructor_panel' %}">Instructor Panel</a>
+        {% endif %}
+        {% if profile.role == 'admin' %}
+          <a href="{% url 'irumvajeanmarie:admin_panel' %}">Admin Panel</a>
+        {% endif %}
+      {% endwith %}
       <a href="{% url 'irumvajeanmarie:logout' %}">Logout</a>
     {% else %}
       <a href="{% url 'irumvajeanmarie:login' %}">Login</a>

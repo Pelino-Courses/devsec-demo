@@ -22,7 +22,7 @@ class RegistrationTestCase(TestCase):
         self.assertEqual(User.objects.filter(username='testuser').count(), 1)
         self.assertRedirects(response, reverse('irumvajeanmarie:login'))
 
-    def test_profile_created_on_register(self):
+    def test_profile_created_with_student_role(self):
         self.client.post(reverse('irumvajeanmarie:register'), {
             'username': 'testuser',
             'email': 'test@example.com',
@@ -30,7 +30,8 @@ class RegistrationTestCase(TestCase):
             'password2': 'StrongPass123!',
         })
         user = User.objects.get(username='testuser')
-        self.assertTrue(Profile.objects.filter(user=user).exists())
+        profile = Profile.objects.get(user=user)
+        self.assertEqual(profile.role, Profile.ROLE_STUDENT)
 
     def test_duplicate_email_rejected(self):
         User.objects.create_user(username='existing', email='same@example.com', password='pass123')
@@ -52,7 +53,7 @@ class LoginTestCase(TestCase):
             email='test@example.com',
             password='StrongPass123!'
         )
-        Profile.objects.create(user=self.user)
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
 
     def test_login_page_loads(self):
         response = self.client.get(reverse('irumvajeanmarie:login'))
@@ -82,7 +83,7 @@ class ProtectedViewsTestCase(TestCase):
             email='test@example.com',
             password='StrongPass123!'
         )
-        Profile.objects.create(user=self.user)
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
 
     def test_dashboard_requires_login(self):
         response = self.client.get(reverse('irumvajeanmarie:dashboard'))
@@ -117,7 +118,7 @@ class PasswordChangeTestCase(TestCase):
             email='test@example.com',
             password='StrongPass123!'
         )
-        Profile.objects.create(user=self.user)
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
         self.client.login(username='testuser', password='StrongPass123!')
 
     def test_password_change_page_loads(self):
@@ -131,3 +132,63 @@ class PasswordChangeTestCase(TestCase):
             'new_password2': 'NewStrongPass456!',
         })
         self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
+
+
+class RBACTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.student = User.objects.create_user(
+            username='student', email='student@example.com', password='StrongPass123!')
+        Profile.objects.create(user=self.student, role=Profile.ROLE_STUDENT)
+
+        self.instructor = User.objects.create_user(
+            username='instructor', email='instructor@example.com', password='StrongPass123!')
+        Profile.objects.create(user=self.instructor, role=Profile.ROLE_INSTRUCTOR)
+
+        self.admin = User.objects.create_user(
+            username='adminuser', email='admin@example.com', password='StrongPass123!')
+        Profile.objects.create(user=self.admin, role=Profile.ROLE_ADMIN)
+
+    def test_student_cannot_access_instructor_panel(self):
+        self.client.login(username='student', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:instructor_panel'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_can_access_instructor_panel(self):
+        self.client.login(username='instructor', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:instructor_panel'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_admin_can_access_instructor_panel(self):
+        self.client.login(username='adminuser', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:instructor_panel'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_student_cannot_access_admin_panel(self):
+        self.client.login(username='student', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:admin_panel'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_cannot_access_admin_panel(self):
+        self.client.login(username='instructor', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:admin_panel'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_access_admin_panel(self):
+        self.client.login(username='adminuser', password='StrongPass123!')
+        response = self.client.get(reverse('irumvajeanmarie:admin_panel'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_cannot_access_instructor_panel(self):
+        response = self.client.get(reverse('irumvajeanmarie:instructor_panel'))
+        self.assertRedirects(
+            response,
+            '/irumvajeanmarie/login/?next=/irumvajeanmarie/instructor/'
+        )
+
+    def test_anonymous_cannot_access_admin_panel(self):
+        response = self.client.get(reverse('irumvajeanmarie:admin_panel'))
+        self.assertRedirects(
+            response,
+            '/irumvajeanmarie/login/?next=/irumvajeanmarie/admin-panel/'
+        )
