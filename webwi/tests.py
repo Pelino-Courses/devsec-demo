@@ -1,11 +1,18 @@
 import json
+import os
+import struct
+import tempfile
+import zlib
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
+from django.test.utils import override_settings
 from django.urls import reverse
 
-from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
+from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile, validate_avatar_upload
 
 
 User = get_user_model()
@@ -800,3 +807,106 @@ class XSSPreventionTests(TestCase):
 		# Raw payload must not appear; attribute-escaped version must
 		self.assertNotContains(response, '"><script>alert(1)</script>')
 		self.assertContains(response, '&quot;&gt;&lt;script&gt;')
+
+
+def _make_png_bytes():
+	"""Return a minimal valid 1x1 white PNG as bytes."""
+	def chunk(name, data):
+		c = struct.pack('>I', len(data)) + name + data
+		return c + struct.pack('>I', zlib.crc32(name + data) & 0xffffffff)
+
+	sig = b'\x89PNG\r\n\x1a\n'
+	ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0))
+	raw = b'\x00\xff\xff\xff'  # filter byte + RGB for 1 pixel
+	idat = chunk(b'IDAT', zlib.compress(raw))
+	iend = chunk(b'IEND', b'')
+	return sig + ihdr + idat + iend
+
+
+class FileUploadSecurityTests(TestCase):
+	"""Verify avatar upload validation and access-controlled media serving."""
+
+	def setUp(self):
+		self.user = User.objects.create_user(
+			username='uploader',
+			email='uploader@example.com',
+			password='Upload123!',
+		)
+		self.client.login(username='uploader', password='Upload123!')
+
+	# --- Validator unit tests ---
+
+	def test_valid_png_passes_validator(self):
+		"""A well-formed PNG under the size limit passes without error."""
+		png = SimpleUploadedFile('avatar.png', _make_png_bytes(), content_type='image/png')
+		try:
+			validate_avatar_upload(png)
+		except ValidationError as exc:
+			self.fail(f'validate_avatar_upload raised ValidationError for valid PNG: {exc}')
+
+	def test_oversized_file_rejected(self):
+		"""Files exceeding 2 MB are rejected."""
+		big = SimpleUploadedFile('big.jpg', b'A' * (2 * 1024 * 1024 + 1), content_type='image/jpeg')
+		with self.assertRaises(ValidationError) as ctx:
+			validate_avatar_upload(big)
+		self.assertIn('2 MB', str(ctx.exception))
+
+	def test_disallowed_extension_rejected(self):
+		"""Files with a disallowed extension are rejected regardless of content."""
+		# .php is not in the allowed extension set; use harmless placeholder bytes.
+		bad_ext = SimpleUploadedFile(
+			'upload.php',
+			b'not an image',
+			content_type='application/octet-stream',
+		)
+		with self.assertRaises(ValidationError) as ctx:
+			validate_avatar_upload(bad_ext)
+		self.assertIn('.php', str(ctx.exception))
+
+	def test_executable_bytes_with_image_extension_rejected(self):
+		"""A non-image file renamed to .png is rejected by the Pillow verify step."""
+		# DOS/PE magic bytes renamed as a PNG — must not pass image verification.
+		fake_png = SimpleUploadedFile(
+			'not_really.png',
+			b'MZ\x90\x00' + b'\x00' * 100,
+			content_type='image/png',
+		)
+		with self.assertRaises(ValidationError) as ctx:
+			validate_avatar_upload(fake_png)
+		self.assertIn('valid image', str(ctx.exception))
+
+	def test_svg_extension_rejected(self):
+		"""SVG is not in the extension allowlist and must be rejected."""
+		svg_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+		svg = SimpleUploadedFile('image.svg', svg_bytes, content_type='image/svg+xml')
+		with self.assertRaises(ValidationError):
+			validate_avatar_upload(svg)
+
+	# --- Access control tests ---
+
+	def test_media_path_requires_authentication(self):
+		"""The /media/ serve endpoint must redirect unauthenticated requests to login."""
+		self.client.logout()
+		response = self.client.get('/media/avatars/anything.png')
+		self.assertEqual(response.status_code, 302)
+		self.assertIn('login', response['Location'])
+
+	def test_media_path_returns_file_when_authenticated(self):
+		"""An authenticated user can retrieve a file that exists under MEDIA_ROOT."""
+		media_root = tempfile.mkdtemp()
+		avatars_dir = os.path.join(media_root, 'avatars')
+		os.makedirs(avatars_dir, exist_ok=True)
+		test_file = os.path.join(avatars_dir, 'fixture.png')
+		with open(test_file, 'wb') as fh:
+			fh.write(_make_png_bytes())
+
+		with override_settings(MEDIA_ROOT=media_root):
+			response = self.client.get('/media/avatars/fixture.png')
+			self.assertEqual(response.status_code, 200)
+
+	def test_path_traversal_cannot_escape_media_root(self):
+		"""Path traversal attempts must not return 200."""
+		# Django normalises '..' in the URL path before routing;
+		# the result is either a 404 or a redirect — never a 200.
+		response = self.client.get('/media/avatars/../../manage.py')
+		self.assertNotEqual(response.status_code, 200)

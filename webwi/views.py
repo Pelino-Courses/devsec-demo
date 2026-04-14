@@ -1,5 +1,7 @@
 import json
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
@@ -15,7 +17,7 @@ from django.contrib.auth.views import (
     PasswordResetView,
 )
 from django.core.exceptions import PermissionDenied
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
@@ -265,6 +267,28 @@ def quick_display_name_update(request):
     profile.display_name = display_name
     profile.save(update_fields=['display_name'])
     return JsonResponse({'display_name': profile.display_name})
+
+
+@login_required
+def avatar_serve(request, path):
+    """Serve an uploaded avatar only to authenticated users.
+
+    Resolves the path relative to MEDIA_ROOT and verifies the resolved
+    absolute path is still inside MEDIA_ROOT (path-traversal guard) before
+    opening the file.  Unauthenticated requests are redirected to login by
+    @login_required, so uploaded files are never publicly accessible.
+    """
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    requested = (media_root / path).resolve()
+
+    # Reject any path that escapes MEDIA_ROOT (traversal attempt).
+    if not requested.is_relative_to(media_root):
+        raise Http404
+
+    if not requested.is_file():
+        raise Http404
+
+    return FileResponse(open(requested, 'rb'))
 
 
 def home_redirect(request):

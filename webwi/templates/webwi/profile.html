@@ -45,7 +45,7 @@
             <div class="field full">
                 <label for="{{ form.avatar.id_for_label }}">Avatar</label>
                 {% if profile.avatar %}
-                    <p class="helptext">Current: <a href="{{ profile.avatar.url }}">{{ profile.avatar.name }}</a></p>
+                    <p class="helptext">Current: <a href="{% url 'webwi:avatar_serve' profile.avatar.name %}">{{ profile.avatar.name }}</a></p>
                 {% endif %}
                 {{ form.avatar }}
                 {{ form.avatar.errors }}

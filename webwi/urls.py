@@ -14,6 +14,7 @@ from .views import (
     UserPasswordResetDoneView,
     UserPasswordResetView,
     UserRegistrationView,
+    avatar_serve,
     home_redirect,
     quick_display_name_update,
 )
@@ -36,4 +37,6 @@ urlpatterns = [
     path('password/reset/complete/', UserPasswordResetCompleteView.as_view(), name='password_reset_complete'),
     path('profile/display-name/', quick_display_name_update, name='quick_display_name_update'),
     path('profile/preview/', ProfilePreviewView.as_view(), name='profile_preview'),
+    # Authenticated media serving — replaces the unauthenticated static() route.
+    path('media/<path:path>', avatar_serve, name='avatar_serve'),
 ]
