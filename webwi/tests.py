@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 from django.urls import reverse
 
@@ -123,3 +124,53 @@ class AuthenticationFlowTests(TestCase):
 		self.assertEqual(self.user.email, 'alice@example.com')
 		self.assertEqual(profile.display_name, 'alice-t')
 		self.assertEqual(profile.bio, 'Security-focused student.')
+
+
+class RBACTests(TestCase):
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.standard_user = User.objects.create_user(
+			username='standard',
+			email='standard@example.com',
+			password=self.password,
+		)
+		self.staff_user = User.objects.create_user(
+			username='staffer',
+			email='staff@example.com',
+			password=self.password,
+			is_staff=True,
+		)
+
+	def test_anonymous_cannot_access_privileged_directory(self):
+		response = self.client.get(reverse('webwi:user_directory'))
+		self.assertEqual(response.status_code, 302)
+		self.assertIn(reverse('webwi:login'), response['Location'])
+
+	def test_authenticated_standard_user_is_denied_privileged_directory(self):
+		self.client.login(username='standard', password=self.password)
+		response = self.client.get(reverse('webwi:user_directory'))
+		self.assertEqual(response.status_code, 403)
+
+	def test_staff_user_can_access_privileged_directory(self):
+		self.client.login(username='staffer', password=self.password)
+		response = self.client.get(reverse('webwi:user_directory'))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'Privileged User Directory')
+
+	def test_permission_granted_user_can_access_privileged_directory(self):
+		permission = Permission.objects.get(codename='view_user_directory')
+		self.standard_user.user_permissions.add(permission)
+
+		self.client.login(username='standard', password=self.password)
+		response = self.client.get(reverse('webwi:user_directory'))
+		self.assertEqual(response.status_code, 200)
+
+	def test_users_navigation_visibility_matches_role(self):
+		self.client.login(username='standard', password=self.password)
+		standard_response = self.client.get(reverse('webwi:dashboard'))
+		self.assertNotContains(standard_response, reverse('webwi:user_directory'))
+
+		self.client.logout()
+		self.client.login(username='staffer', password=self.password)
+		staff_response = self.client.get(reverse('webwi:dashboard'))
+		self.assertContains(staff_response, reverse('webwi:user_directory'))

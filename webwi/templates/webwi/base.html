@@ -19,6 +19,9 @@
                 <a href="{% url 'webwi:dashboard' %}">Dashboard</a>
                 <a href="{% url 'webwi:profile' %}">Profile</a>
                 <a href="{% url 'webwi:password_change' %}">Password</a>
+                {% if request.user.is_staff or request.user.is_superuser or perms.webwi.view_user_directory %}
+                    <a href="{% url 'webwi:user_directory' %}">Users</a>
+                {% endif %}
             {% else %}
                 <a href="{% url 'webwi:login' %}">Login</a>
                 <a href="{% url 'webwi:register' %}">Register</a>

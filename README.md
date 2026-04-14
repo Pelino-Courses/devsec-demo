@@ -70,6 +70,15 @@ This repository now includes a dedicated Django authentication app named `webwi`
 - Protected authenticated dashboard
 - Password change flow
 - Basic profile management
+- Role-based access control for privileged actions
+
+### RBAC model
+
+- Anonymous visitors: can access login and registration pages only.
+- Authenticated users: can access dashboard, profile, and password change routes.
+- Privileged users (`is_staff`, `is_superuser`, or users with `webwi.view_user_directory`): can access privileged user directory route.
+
+Unauthorized access to privileged views is denied with an HTTP 403 response.
 
 ### Setup
 
@@ -104,6 +113,7 @@ This repository now includes a dedicated Django authentication app named `webwi`
 - `/dashboard/`
 - `/password/change/`
 - `/profile/`
+- `/users/` (privileged only)
 
 ### Tests
 

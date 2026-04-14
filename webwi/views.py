@@ -1,12 +1,31 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeDoneView, PasswordChangeView
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
 
 from .forms import LoginForm, PasswordUpdateForm, ProfileForm, RegistrationForm
 from .models import Profile
+
+
+class PrivilegedAccessMixin(LoginRequiredMixin):
+    """Allow access only to staff/superusers or users with explicit RBAC permission."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
+        is_privileged = (
+            request.user.is_superuser
+            or request.user.is_staff
+            or request.user.has_perm('webwi.view_user_directory')
+        )
+        if not is_privileged:
+            raise PermissionDenied('You do not have permission to access this area.')
+        return super().dispatch(request, *args, **kwargs)
 
 
 class UserRegistrationView(FormView):
@@ -68,6 +87,17 @@ class ProfileView(LoginRequiredMixin, UpdateView):
         self.object = form.save(user=self.request.user)
         messages.success(self.request, 'Your profile was updated successfully.')
         return redirect(self.get_success_url())
+
+
+class UserDirectoryView(PrivilegedAccessMixin, TemplateView):
+    template_name = 'webwi/user_directory.html'
+    extra_context = {'page_title': 'User Directory'}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user_model = get_user_model()
+        context['users'] = user_model.objects.order_by('username').select_related('profile')
+        return context
 
 
 def home_redirect(request):

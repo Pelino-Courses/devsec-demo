@@ -249,6 +249,30 @@ p.lead {
     display: inline;
 }
 
+.table-wrap {
+    overflow-x: auto;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.user-table th,
+.user-table td {
+    text-align: left;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.user-table thead th {
+    background: #f2f8fb;
+    font-weight: 700;
+}
+
 @media (max-width: 760px) {
     .nav-links {
         gap: 0.6rem;
