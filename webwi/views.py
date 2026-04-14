@@ -66,6 +66,10 @@ class UserRegistrationView(FormView):
     def form_valid(self, form):
         form.save()
         messages.success(self.request, 'Account created successfully. You can now log in.')
+        # INSECURE: uses next from the request without validating the host
+        next_url = self.request.POST.get('next') or self.request.GET.get('next', '')
+        if next_url:
+            return redirect(next_url)
         return super().form_valid(form)
 
 
@@ -73,6 +77,13 @@ class UserLoginView(LoginView):
     form_class = LoginForm
     template_name = 'webwi/login.html'
     extra_context = {'page_title': 'Welcome Back'}
+
+    def get_redirect_url(self):
+        # INSECURE: returns next without validating against allowed hosts,
+        # allowing an attacker to craft /login/?next=https://evil.com/
+        next_url = self.request.POST.get(self.redirect_field_name) or \
+                   self.request.GET.get(self.redirect_field_name, '')
+        return next_url  # no host validation
 
     def post(self, request, *args, **kwargs):
         # Check lockout before processing credentials so the authentication
