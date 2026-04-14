@@ -1,0 +1,83 @@
+{% extends 'hirwafab/base.html' %}
+
+{% block title %}Dashboard - Authentication Service{% endblock %}
+
+{% block navbar %}
+<nav class="navbar">
+    <div class="navbar-content">
+        <a href="{% url 'hirwafab:dashboard' %}" class="navbar-brand">🔐 HirwaF</a>
+        <div class="navbar-menu">
+            <span class="navbar-user">Welcome, {{ user.username }}</span>
+            <a href="{% url 'hirwafab:profile' %}">Profile</a>
+            <a href="{% url 'hirwafab:change_password' %}">Change Password</a>
+            <a href="{% url 'hirwafab:logout' %}" style="color: #ef4444;">Logout</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-wrapper">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <h1>👋 Welcome to Your Dashboard</h1>
+
+        <div class="profile-header">
+            <div class="avatar">
+                {% if profile.avatar %}
+                    <img src="{{ profile.avatar.url }}" alt="Profile picture">
+                {% else %}
+                    {{ user.first_name|first|default:user.username|first|upper }}
+                {% endif %}
+            </div>
+            <div class="profile-info">
+                <h2>{{ user.get_full_name|default:user.username }}</h2>
+                <div class="profile-info-row">
+                    <strong>Username:</strong> {{ user.username }}
+                </div>
+                <div class="profile-info-row">
+                    <strong>Email:</strong> {{ user.email }}
+                </div>
+                <div class="profile-info-row">
+                    <strong>Member since:</strong> {{ user.date_joined|date:"F j, Y" }}
+                </div>
+            </div>
+        </div>
+
+        {% if profile.bio %}
+            <div class="info-section">
+                <h3>📖 About You</h3>
+                <p>{{ profile.bio }}</p>
+            </div>
+        {% else %}
+            <div class="info-section" style="color: #9ca3af; font-style: italic;">
+                <p>No bio added yet. <a href="{% url 'hirwafab:profile' %}" style="color: #3b82f6;">Add one now</a></p>
+            </div>
+        {% endif %}
+
+        <div class="links-grid">
+            <a href="{% url 'hirwafab:profile' %}" class="link-card">
+                <h3>📝 Edit Profile</h3>
+                <p>Update your personal information</p>
+            </a>
+            <a href="{% url 'hirwafab:change_password' %}" class="link-card">
+                <h3>🔐 Change Password</h3>
+                <p>Update your account security</p>
+            </a>
+            <a href="{% url 'hirwafab:logout' %}" class="link-card">
+                <h3>🚪 Sign Out</h3>
+                <p>Logout from your account</p>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
