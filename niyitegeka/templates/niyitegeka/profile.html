@@ -1,0 +1,35 @@
+{% extends "niyitegeka/base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<h2>My Profile</h2>
+
+<p style="margin-bottom: 20px; color: #666;">
+    <strong>Username:</strong> {{ user.username }}<br>
+    <strong>Email:</strong> {{ user.email }}<br>
+    <strong>Joined:</strong> {{ user.date_joined|date:"F j, Y" }}
+</p>
+
+<form method="POST" action="">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="form-group">
+        <label>{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+        <ul class="errorlist">
+            {% for error in field.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit">Save Changes</button>
+</form>
+
+<div class="link">
+    <a href="/auth/dashboard/">Back to Dashboard</a>
+</div>
+{% endblock %}
