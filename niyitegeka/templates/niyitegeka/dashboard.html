@@ -1,0 +1,55 @@
+{% extends "niyitegeka/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Welcome, {{ user.username }}</h2>
+
+<p style="color: #666; margin-bottom: 30px;">
+    You are logged in to the UAS Portal.
+</p>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+    <a href="/auth/profile/" style="
+        display: block;
+        padding: 14px 20px;
+        background: #1a1a2e;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 15px;
+    ">View My Profile</a>
+
+    <a href="/auth/password-change/" style="
+        display: block;
+        padding: 14px 20px;
+        background: #1a1a2e;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 15px;
+    ">Change Password</a>
+
+    {% if user.is_staff %}
+    <a href="/auth/staff/" style="
+        display: block;
+        padding: 14px 20px;
+        background: #e94560;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 15px;
+    ">Staff Dashboard</a>
+    {% endif %}
+
+    <a href="/auth/logout/" style="
+        display: block;
+        padding: 14px 20px;
+        background: #666;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 15px;
+    ">Logout</a>
+</div>
+{% endblock %}
