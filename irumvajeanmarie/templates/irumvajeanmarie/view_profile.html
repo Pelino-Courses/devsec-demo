@@ -1,0 +1,31 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}{{ profile.user.username }}'s Profile - UAS{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>{{ profile.user.username }}'s Profile</h2>
+  {% if is_owner %}
+    <p><em>This is your profile.</em></p>
+  {% endif %}
+  <hr>
+  <p><strong>Username:</strong> {{ profile.user.username }}</p>
+  <p><strong>Email:</strong> {{ profile.user.email }}</p>
+  <p><strong>Role:</strong>
+    <span class="role-badge role-{{ profile.role }}">{{ profile.role|title }}</span>
+  </p>
+  <p><strong>Member since:</strong> {{ profile.user.date_joined|date:"F d, Y" }}</p>
+  <hr>
+  <h3>Bio</h3>
+  {% if profile.bio %}
+    <p>{{ profile.bio }}</p>
+  {% else %}
+    <p><em>No bio provided.</em></p>
+  {% endif %}
+  <br>
+  {% if is_owner %}
+    <a href="{% url 'irumvajeanmarie:profile' %}" class="btn">Edit My Profile</a>
+  {% endif %}
+  <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn">Back to Dashboard</a>
+</div>
+{% endblock %}
