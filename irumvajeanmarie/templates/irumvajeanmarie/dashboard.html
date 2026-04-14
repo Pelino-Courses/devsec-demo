@@ -1,0 +1,28 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Dashboard - UAS{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Welcome, {{ request.user.username }}! 👋</h2>
+  <p><strong>Email:</strong> {{ request.user.email }}</p>
+  <p><strong>Member since:</strong> {{ request.user.date_joined|date:"F d, Y" }}</p>
+  <p><strong>Last login:</strong> {{ request.user.last_login|date:"F d, Y H:i" }}</p>
+  <hr>
+  <h3>Quick Actions</h3>
+  <a href="{% url 'irumvajeanmarie:profile' %}" class="btn">Edit Profile</a>
+  &nbsp;
+  <a href="{% url 'irumvajeanmarie:password_change' %}" class="btn">Change Password</a>
+  &nbsp;
+  <a href="{% url 'irumvajeanmarie:logout' %}" class="btn">Logout</a>
+</div>
+
+<div class="card">
+  <h3>Your Bio</h3>
+  {% if profile.bio %}
+    <p>{{ profile.bio }}</p>
+  {% else %}
+    <p><em>No bio yet. <a href="{% url 'irumvajeanmarie:profile' %}">Add one now</a>.</em></p>
+  {% endif %}
+</div>
+{% endblock %}

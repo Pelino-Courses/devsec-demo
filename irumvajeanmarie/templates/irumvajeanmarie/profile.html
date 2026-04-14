@@ -1,0 +1,30 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Profile - UAS{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>My Profile</h2>
+  <p><strong>Username:</strong> {{ request.user.username }}</p>
+  <p><strong>Email:</strong> {{ request.user.email }}</p>
+  <hr>
+  <h3>Update Bio</h3>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <label>{{ field.label }}</label>
+      {{ field }}
+      {% if field.errors %}
+        <ul class="error-list">
+          {% for error in field.errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endfor %}
+    <button type="submit">Save Changes</button>
+  </form>
+  <br>
+  <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn">Back to Dashboard</a>
+</div>
+{% endblock %}
