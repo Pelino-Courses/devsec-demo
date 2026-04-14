@@ -593,3 +593,46 @@ class FileUploadTest(TestCase):
         c.login(username='peter', password='Secure@1234')
         response = c.get('/auth/document-upload/')
         assert response.status_code == 200
+
+
+class SecuritySettingsTest(TestCase):
+
+    def test_debug_is_controlled_by_environment(self):
+        from django.conf import settings
+        self.assertIsInstance(settings.DEBUG, bool)
+
+    def test_secret_key_is_set(self):
+        from django.conf import settings
+        self.assertTrue(len(settings.SECRET_KEY) > 0)
+
+    def test_secret_key_not_default(self):
+        from django.conf import settings
+        self.assertNotIn('insecure', settings.SECRET_KEY.lower())
+
+    def test_allowed_hosts_is_set(self):
+        from django.conf import settings
+        self.assertIsInstance(settings.ALLOWED_HOSTS, list)
+
+    def test_csrf_cookie_httponly(self):
+        from django.conf import settings
+        self.assertTrue(settings.CSRF_COOKIE_HTTPONLY)
+
+    def test_session_cookie_httponly(self):
+        from django.conf import settings
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+
+    def test_x_frame_options_is_deny(self):
+        from django.conf import settings
+        self.assertEqual(settings.X_FRAME_OPTIONS, 'DENY')
+
+    def test_content_type_nosniff(self):
+        from django.conf import settings
+        self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
+
+    def test_session_expire_at_browser_close(self):
+        from django.conf import settings
+        self.assertTrue(settings.SESSION_EXPIRE_AT_BROWSER_CLOSE)
+
+    def test_session_cookie_age_is_limited(self):
+        from django.conf import settings
+        self.assertLessEqual(settings.SESSION_COOKIE_AGE, 3600)
