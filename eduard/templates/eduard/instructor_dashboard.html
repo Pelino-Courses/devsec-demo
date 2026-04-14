@@ -1,0 +1,40 @@
+{% extends "eduard/base.html" %}
+{% block title %}Instructor Dashboard{% endblock %}
+{% block content %}
+<h1>Instructor dashboard</h1>
+<p style="color:#555;margin:0.5rem 0 1.5rem;">
+    This area is restricted to instructors and staff only.
+</p>
+<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+    <thead>
+        <tr style="background:#f0f0f0;text-align:left;">
+            <th style="padding:0.5rem;border-bottom:2px solid #ddd;">Username</th>
+            <th style="padding:0.5rem;border-bottom:2px solid #ddd;">Email</th>
+            <th style="padding:0.5rem;border-bottom:2px solid #ddd;">Joined</th>
+            <th style="padding:0.5rem;border-bottom:2px solid #ddd;">Role</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in users %}
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">{{ u.username }}</td>
+            <td style="padding:0.5rem;">{{ u.email }}</td>
+            <td style="padding:0.5rem;">{{ u.date_joined|date:"N j, Y" }}</td>
+            <td style="padding:0.5rem;">
+                {% if u.is_superuser %}
+                    <span style="color:#856404;font-weight:600;">Superuser</span>
+                {% elif u.is_staff %}
+                    <span style="color:#0c5460;font-weight:600;">Staff</span>
+                {% elif u.groups.all %}
+                    {% for g in u.groups.all %}
+                    <span style="color:#534AB7;font-weight:600;">{{ g.name }}</span>
+                    {% endfor %}
+                {% else %}
+                    <span style="color:#555;">User</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
