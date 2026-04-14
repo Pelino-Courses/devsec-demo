@@ -1,0 +1,95 @@
+{% extends 'mupenz_fulgence/base.html' %}
+
+{% block title %}Dashboard | UAS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+
+    <!-- Welcome banner -->
+    <div class="card mb-4 border-start border-primary border-4">
+      <div class="card-body px-4 py-3">
+        <h2 class="fw-bold mb-1">
+          Welcome, {{ user.get_short_name|default:user.username }}!
+        </h2>
+        <p class="text-muted mb-0">
+          You are securely signed in. Here is your account overview.
+        </p>
+      </div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="row g-4">
+
+      <!-- Account info -->
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-body p-4">
+            <h5 class="card-title fw-semibold mb-3">
+              <i class="bi bi-person-circle text-primary me-2"></i>Account
+            </h5>
+            <ul class="list-unstyled mb-0 small">
+              <li class="mb-2">
+                <span class="text-muted">Username</span><br>
+                <strong>{{ user.username }}</strong>
+              </li>
+              <li class="mb-2">
+                <span class="text-muted">Email</span><br>
+                <strong>{{ user.email|default:"—" }}</strong>
+              </li>
+              <li class="mb-2">
+                <span class="text-muted">Full name</span><br>
+                <strong>{{ user.get_full_name|default:"—" }}</strong>
+              </li>
+              <li>
+                <span class="text-muted">Member since</span><br>
+                <strong>{{ user.date_joined|date:"F j, Y" }}</strong>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile info -->
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-body p-4">
+            <h5 class="card-title fw-semibold mb-3">
+              <i class="bi bi-card-text text-primary me-2"></i>Profile
+            </h5>
+            {% if profile %}
+              <ul class="list-unstyled mb-0 small">
+                <li class="mb-2">
+                  <span class="text-muted">Location</span><br>
+                  <strong>{{ profile.location|default:"—" }}</strong>
+                </li>
+                <li class="mb-2">
+                  <span class="text-muted">Birth date</span><br>
+                  <strong>{{ profile.birth_date|date:"F j, Y"|default:"—" }}</strong>
+                </li>
+                <li>
+                  <span class="text-muted">Bio</span><br>
+                  <span>{{ profile.bio|default:"No bio yet." }}</span>
+                </li>
+              </ul>
+            {% else %}
+              <p class="text-muted small">No profile data yet.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div><!-- /row -->
+
+    <!-- Quick-action buttons -->
+    <div class="mt-4 d-flex flex-wrap gap-2">
+      <a href="{% url 'mupenz_fulgence:profile' %}" class="btn btn-primary">
+        <i class="bi bi-pencil-fill me-1"></i> Edit Profile
+      </a>
+      <a href="{% url 'mupenz_fulgence:password_change' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-key-fill me-1"></i> Change Password
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
