@@ -380,3 +380,66 @@ class CSRFProtectionTest(TestCase):
         self.client.login(username='peter', password='Secure@1234')
         response = self.client.get(reverse('niyitegeka:profile'))
         self.assertContains(response, 'csrfmiddlewaretoken')
+
+
+class OpenRedirectTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+
+    def test_safe_internal_redirect_works(self):
+        response = self.client.post(
+            '/auth/login/?next=/auth/dashboard/',
+            {
+                'username': 'peter',
+                'password': 'Secure@1234',
+                'next': '/auth/dashboard/'
+            }
+        )
+        self.assertRedirects(response, '/auth/dashboard/')
+
+    def test_external_redirect_blocked(self):
+        response = self.client.post(
+            '/auth/login/?next=https://malicious.com',
+            {
+                'username': 'peter',
+                'password': 'Secure@1234',
+                'next': 'https://malicious.com'
+            }
+        )
+        self.assertRedirects(response, '/auth/dashboard/')
+
+    def test_protocol_relative_redirect_blocked(self):
+        response = self.client.post(
+            '/auth/login/',
+            {
+                'username': 'peter',
+                'password': 'Secure@1234',
+                'next': '//malicious.com'
+            }
+        )
+        self.assertRedirects(response, '/auth/dashboard/')
+
+    def test_no_next_redirects_to_dashboard(self):
+        response = self.client.post(
+            '/auth/login/',
+            {
+                'username': 'peter',
+                'password': 'Secure@1234',
+            }
+        )
+        self.assertRedirects(response, '/auth/dashboard/')
+
+    def test_empty_next_redirects_to_dashboard(self):
+        response = self.client.post(
+            '/auth/login/',
+            {
+                'username': 'peter',
+                'password': 'Secure@1234',
+                'next': ''
+            }
+        )
+        self.assertRedirects(response, '/auth/dashboard/')

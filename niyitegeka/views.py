@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
+from django.utils.http import url_has_allowed_host_and_scheme
 from .forms import (
     RegisterForm,
     LoginForm,
@@ -53,6 +54,15 @@ def loginview(request):
             user = form.get_user()
             attempt.reset()
             login(request, user)
+            next_url = request.POST.get(
+                'next', request.GET.get('next', '')
+            )
+            if next_url and url_has_allowed_host_and_scheme(
+                url=next_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure()
+            ):
+                return redirect(next_url)
             return redirect('niyitegeka:dashboard')
         else:
             attempt.increment()
