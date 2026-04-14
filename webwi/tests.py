@@ -721,3 +721,82 @@ class AuditLoggingTests(TestCase):
 		combined = ' '.join(cm.output)
 		self.assertIn('permission_revoked', combined)
 		self.assertIn('audituser', combined)
+
+
+class XSSPreventionTests(TestCase):
+	"""Verify that user-controlled profile content is HTML-escaped before rendering.
+
+	Each test stores an XSS payload in a profile field, requests the page
+	that displays it, and asserts:
+	  - the raw payload tag is absent (would execute in a browser)
+	  - the HTML-encoded version is present (safe text node)
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user = User.objects.create_user(
+			username='xssuser',
+			email='xss@example.com',
+			password=self.password,
+		)
+		self.profile, _ = Profile.objects.get_or_create(user=self.user)
+		self.client.login(username='xssuser', password=self.password)
+
+	def test_script_tag_in_bio_is_escaped_on_preview(self):
+		"""<script> in bio must be HTML-encoded, not executed."""
+		self.profile.bio = '<script>alert("xss")</script>'
+		self.profile.save()
+		response = self.client.get(reverse('webwi:profile_preview'))
+		self.assertEqual(response.status_code, 200)
+		self.assertNotContains(response, '<script>alert("xss")</script>')
+		self.assertContains(response, '&lt;script&gt;')
+
+	def test_event_handler_in_display_name_is_escaped_on_preview(self):
+		"""<img onerror> must be HTML-encoded so the element never renders in the browser."""
+		self.profile.display_name = '<img src=x onerror=alert(1)>'
+		self.profile.save()
+		response = self.client.get(reverse('webwi:profile_preview'))
+		content = response.content.decode()
+		# Raw unescaped tag must be absent — it would be parsed as an element by browsers
+		self.assertNotIn('<img src=x onerror=alert(1)>', content)
+		# Encoded form must be present — rendered as inert text, not an element
+		self.assertContains(response, '&lt;img')
+
+	def test_javascript_uri_in_bio_is_escaped_on_preview(self):
+		"""A javascript: href must be encoded so it cannot be a functional anchor."""
+		self.profile.bio = '<a href="javascript:alert(1)">click</a>'
+		self.profile.save()
+		response = self.client.get(reverse('webwi:profile_preview'))
+		content = response.content.decode()
+		# Raw anchor tag must be absent
+		self.assertNotIn('<a href="javascript:alert(1)">', content)
+		# Must be encoded as harmless text
+		self.assertContains(response, '&lt;a')
+
+	def test_plain_text_bio_renders_correctly(self):
+		"""Legitimate plain-text bio content must still display unchanged."""
+		self.profile.bio = 'Security-focused student from Kigali.'
+		self.profile.save()
+		response = self.client.get(reverse('webwi:profile_preview'))
+		self.assertContains(response, 'Security-focused student from Kigali.')
+
+	def test_script_tag_in_username_is_escaped_in_user_directory(self):
+		"""A privileged viewer must not execute scripts from any username field."""
+		staff = User.objects.create_user(
+			username='<script>alert("dir")</script>',
+			email='staff@example.com',
+			password=self.password,
+			is_staff=True,
+		)
+		self.client.login(username=staff.username, password=self.password)
+		response = self.client.get(reverse('webwi:user_directory'))
+		self.assertNotContains(response, '<script>alert("dir")</script>')
+
+	def test_xss_in_display_name_escaped_in_dashboard_widget(self):
+		"""The dashboard display-name widget value attribute must be HTML-encoded."""
+		self.profile.display_name = '"><script>alert(1)</script>'
+		self.profile.save()
+		response = self.client.get(reverse('webwi:dashboard'))
+		# Raw payload must not appear; attribute-escaped version must
+		self.assertNotContains(response, '"><script>alert(1)</script>')
+		self.assertContains(response, '&quot;&gt;&lt;script&gt;')
