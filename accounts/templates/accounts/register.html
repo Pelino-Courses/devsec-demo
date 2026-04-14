@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register - DevSec Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 80px auto; padding: 20px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; margin: 6px 0 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .btn { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .alert { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+        .alert-success { background: #d4edda; color: #155724; }
+        a { color: #007bff; }
+        ul, p.helptext, .helptext { display: none !important; }
+    </style>
+</head>
+<body>
+    <h2>📝 Register</h2>
+
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <label>Username:</label>
+        <input type="text" name="username" required maxlength="150">
+
+        <label>Password:</label>
+        <input type="password" name="password1" required>
+
+        <label>Confirm Password:</label>
+        <input type="password" name="password2" required>
+
+        <button type="submit" class="btn">Sign Up</button>
+    </form>
+    <br>
+    <a href="{% url 'login' %}">Already have an account? Login</a>
+</body>
+</html>
