@@ -1,0 +1,9 @@
+{% extends "eduard/base.html" %} {% block title %}403 Forbidden{% endblock %} {% block content %}
+<h1>Access denied</h1>
+<p style="margin-top: 1rem; color: #555">
+  You do not have permission to view this page. This area is restricted to privileged users only.
+</p>
+<p style="margin-top: 1rem">
+  <a href="{% url 'eduard:dashboard' %}">Return to dashboard</a>
+</p>
+{% endblock %}
