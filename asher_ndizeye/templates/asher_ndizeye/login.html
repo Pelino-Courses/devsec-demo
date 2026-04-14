@@ -1,0 +1,161 @@
+{% extends 'asher_ndizeye/base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --bg-body: #f1f5f9;
+        --white: #ffffff;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --danger: #ef4444;
+    }
+
+    /* Hide base navbar for login page to keep it focused */
+    nav:not(.new-nav), .old-navbar, header {
+        display: none !important;
+    }
+
+    body {
+        background-color: var(--bg-body);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .auth-container {
+        width: 100%;
+        max-width: 400px;
+        padding: 20px;
+    }
+
+    .auth-card {
+        background: var(--white);
+        padding: 2.5rem;
+        border-radius: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .auth-header h2 {
+        color: var(--text-main);
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+        font-weight: 800;
+    }
+
+    .auth-header p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Styling the Django Form */
+    form p {
+        text-align: left;
+        margin-bottom: 1.25rem;
+    }
+
+    form label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.5rem;
+    }
+
+    form input {
+        width: 100%;
+        padding: 12px 16px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        font-size: 1rem;
+        transition: all 0.2s;
+        box-sizing: border-box; /* Crucial for width */
+    }
+
+    form input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    /* Error Handling */
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 1rem 0;
+        color: var(--danger);
+        font-size: 0.85rem;
+        text-align: left;
+    }
+
+    .btn-login {
+        width: 100%;
+        background: var(--primary);
+        color: white;
+        padding: 14px;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 1rem;
+    }
+
+    .btn-login:hover {
+        background: var(--primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+    }
+
+    .auth-footer {
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+
+    .auth-footer a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2>Welcome Back</h2>
+            <p>Please enter your details to login</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="errorlist">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {{ form.as_p }}
+
+            <button type="submit" class="btn-login">Sign In</button>
+        </form>
+
+        <div class="auth-footer">
+            Don't have an account? <a href="{% url 'register' %}">Create one</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
