@@ -1,0 +1,56 @@
+{% extends 'alpha/base.html' %}
+{% block content %}
+<h2>Profile</h2>
+<p>Hello, {{ user.username }}!</p>
+<p>Email: {{ user.email }}</p>
+<div>Bio: {{ user.userprofile.bio|linebreaks }}</div>
+<hr>
+<h3>Live Connection Pinger</h3>
+<p>Click below to execute a secure AJAX POST testing connection latency.</p>
+<button id="ping-btn">Ping Status</button>
+<p id="ping-result" style="font-weight:bold; color:green;"></p>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.getElementById('ping-btn').addEventListener('click', function() {
+    const csrftoken = getCookie('csrftoken');
+    fetch("{% url 'ping_status' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        document.getElementById('ping-result').innerText = data.message;
+    }).catch(err => {
+        document.getElementById('ping-result').style.color = "red";
+        document.getElementById('ping-result').innerText = "Request failed securely due to " + err;
+    });
+});
+</script>
+
+<p><a href="{% url 'update_profile' user.id %}">Update Bio</a></p>
+<p><a href="{% url 'password_change' %}">Change Password</a></p>
+{% endblock %}
