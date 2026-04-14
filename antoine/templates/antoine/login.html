@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Antoine{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <h2 class="mb-4 text-center">Login to Your Account</h2>
+    
+    <form method="post" novalidate>
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        <div class="mb-3">
+            {{ form.username.label_tag }}
+            {{ form.username }}
+            {% if form.username.errors %}
+                <div class="alert alert-danger mt-2" role="alert">
+                    {% for error in form.username.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            {{ form.password.label_tag }}
+            {{ form.password }}
+            {% if form.password.errors %}
+                <div class="alert alert-danger mt-2" role="alert">
+                    {% for error in form.password.errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3 form-check">
+            {{ form.remember_me }}
+            <label class="form-check-label" for="id_remember_me">
+                Remember me for 30 days
+            </label>
+        </div>
+        
+        <button type="submit" class="btn btn-primary w-100 mb-3">Login</button>
+    </form>
+    
+    <hr>
+    
+    <p class="text-center mb-0">
+        Don't have an account? <a href="{% url 'antoine:register' %}" class="text-decoration-none">Register here</a>
+    </p>
+</div>
+{% endblock %}
