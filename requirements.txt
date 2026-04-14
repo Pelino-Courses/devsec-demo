@@ -1,3 +1,7 @@
 asgiref==3.11.1
 Django==6.0.4
+python-dotenv==1.0.0
 sqlparse==0.5.5
+django-ratelimit==4.1.0
+Pillow==11.0.0
+bleach==6.1.0
