@@ -514,3 +514,57 @@ class AuditLoggingTest(TestCase):
             })
         log_output = ' '.join(cm.output)
         self.assertNotIn('Secure@1234', log_output)
+
+
+class StoredXSSTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='peter',
+            password='Secure@1234'
+        )
+        self.profile = Profile.objects.create(user=self.user)
+        self.client.login(username='peter', password='Secure@1234')
+
+    def test_xss_payload_not_executed_in_profile(self):
+        self.client.post(reverse('niyitegeka:profile'), {
+            'bio': '<script>alert("xss")</script>',
+            'phone': '0781234567',
+        })
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['peter'])
+        )
+        self.assertNotContains(response, '<script>alert("xss")</script>')
+        self.assertContains(response, '&lt;script&gt;')
+
+    def test_normal_bio_renders_correctly(self):
+        self.client.post(reverse('niyitegeka:profile'), {
+            'bio': 'I am peter a CS student.',
+            'phone': '0781234567',
+        })
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['peter'])
+        )
+        self.assertContains(response, 'I am peter a CS student.')
+
+    def test_html_tags_escaped_in_bio(self):
+        self.client.post(reverse('niyitegeka:profile'), {
+            'bio': '<b>bold text</b>',
+            'phone': '0781234567',
+        })
+        response = self.client.get(
+            reverse('niyitegeka:profiledetail', args=['peter'])
+        )
+        self.assertNotContains(response, '<b>bold text</b>')
+        self.assertContains(response, '&lt;b&gt;')
+
+    def test_xss_payload_not_executed_in_profile_form(self):
+        self.client.post(reverse('niyitegeka:profile'), {
+            'bio': '<script>alert("xss")</script>',
+            'phone': '0781234567',
+        })
+        response = self.client.get(reverse('niyitegeka:profile'))
+        self.assertNotContains(
+            response,
+            '<script>alert("xss")</script>'
+        )
