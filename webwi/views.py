@@ -22,6 +22,7 @@ from django.views.decorators.http import require_POST
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView, UpdateView
 
+from . import audit
 from .forms import LoginForm, PasswordResetRequestForm, PasswordResetSetForm, PasswordUpdateForm, ProfileForm, RegistrationForm
 from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
 
@@ -86,7 +87,8 @@ class UserRegistrationView(SafeRedirectMixin, FormView):
     extra_context = {'page_title': 'Create Account'}
 
     def form_valid(self, form):
-        form.save()
+        user = form.save()
+        audit.log_registration(self.request, user.username)
         messages.success(self.request, 'Account created successfully. You can now log in.')
         return redirect(self.get_safe_next_url(self.success_url))
 
@@ -118,16 +120,27 @@ class UserLoginView(LoginView):
         username = form.data.get('username', '').strip()
         if username:
             LoginAttempt.record(username, self.request.META.get('REMOTE_ADDR'))
+            audit.log_login_failure(self.request, username)
         return super().form_invalid(form)
 
     def form_valid(self, form):
         # Successful login resets the counter for this account.
-        LoginAttempt.clear(form.cleaned_data.get('username', ''))
+        username = form.cleaned_data.get('username', '')
+        LoginAttempt.clear(username)
+        audit.log_login_success(self.request, username)
         return super().form_valid(form)
 
 
 class UserLogoutView(LogoutView):
     next_page = reverse_lazy('webwi:login')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Capture username before the session is cleared by super().dispatch().
+        username = request.user.username if request.user.is_authenticated else ''
+        response = super().dispatch(request, *args, **kwargs)
+        if username:
+            audit.log_logout(request, username)
+        return response
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -140,6 +153,11 @@ class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     template_name = 'webwi/password_change.html'
     success_url = reverse_lazy('webwi:password_change_done')
     extra_context = {'page_title': 'Change Password'}
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        audit.log_password_change(self.request, self.request.user.username)
+        return response
 
 
 class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
@@ -193,6 +211,11 @@ class UserPasswordResetView(PasswordResetView):
     success_url = reverse_lazy('webwi:password_reset_done')
     extra_context = {'page_title': 'Reset Password'}
 
+    def form_valid(self, form):
+        # Log before sending email; email address intentionally excluded.
+        audit.log_password_reset_request(self.request)
+        return super().form_valid(form)
+
 
 class UserPasswordResetDoneView(PasswordResetDoneView):
     template_name = 'webwi/password_reset_done.html'
@@ -204,6 +227,11 @@ class UserPasswordResetConfirmView(PasswordResetConfirmView):
     template_name = 'webwi/password_reset_confirm.html'
     success_url = reverse_lazy('webwi:password_reset_complete')
     extra_context = {'page_title': 'Set New Password'}
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        audit.log_password_reset_complete(self.request, form.user.username)
+        return response
 
 
 class UserPasswordResetCompleteView(PasswordResetCompleteView):

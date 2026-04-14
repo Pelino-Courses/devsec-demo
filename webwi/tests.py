@@ -593,3 +593,131 @@ class OpenRedirectTests(TestCase):
 			},
 		)
 		self.assertRedirects(response, reverse('webwi:login'), fetch_redirect_response=False)
+
+
+class AuditLoggingTests(TestCase):
+	"""Verify that security-relevant events are written to the audit log.
+
+	Uses assertLogs('webwi.audit') to intercept log records without
+	requiring a real file or SIEM.  Each test also checks that sensitive
+	data (passwords, email addresses for reset requests) never appear.
+	"""
+
+	def setUp(self):
+		self.password = 'SafePass123!'
+		self.user = User.objects.create_user(
+			username='audituser',
+			email='audit@example.com',
+			password=self.password,
+		)
+
+	def test_registration_is_logged(self):
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.client.post(
+				reverse('webwi:register'),
+				{
+					'username': 'newaudituser',
+					'email': 'newaudit@example.com',
+					'password1': 'TestPass999!',
+					'password2': 'TestPass999!',
+				},
+			)
+		combined = ' '.join(cm.output)
+		self.assertIn('user_registered', combined)
+		self.assertIn('newaudituser', combined)
+
+	def test_login_success_is_logged(self):
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.client.post(
+				reverse('webwi:login'),
+				{'username': 'audituser', 'password': self.password},
+			)
+		combined = ' '.join(cm.output)
+		self.assertIn('login_success', combined)
+		self.assertIn('audituser', combined)
+
+	def test_login_failure_is_logged(self):
+		with self.assertLogs('webwi.audit', level='WARNING') as cm:
+			self.client.post(
+				reverse('webwi:login'),
+				{'username': 'audituser', 'password': 'wrongpassword'},
+			)
+		combined = ' '.join(cm.output)
+		self.assertIn('login_failure', combined)
+		self.assertIn('audituser', combined)
+
+	def test_logout_is_logged(self):
+		self.client.login(username='audituser', password=self.password)
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.client.post(reverse('webwi:logout'))
+		combined = ' '.join(cm.output)
+		self.assertIn('logout', combined)
+		self.assertIn('audituser', combined)
+
+	def test_password_change_is_logged(self):
+		self.client.login(username='audituser', password=self.password)
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.client.post(
+				reverse('webwi:password_change'),
+				{
+					'old_password': self.password,
+					'new_password1': 'NewSafePass123!',
+					'new_password2': 'NewSafePass123!',
+				},
+			)
+		combined = ' '.join(cm.output)
+		self.assertIn('password_changed', combined)
+		self.assertIn('audituser', combined)
+
+	def test_password_reset_request_is_logged_without_email(self):
+		"""Reset request event must be logged but the submitted email must NOT appear."""
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.client.post(reverse('webwi:password_reset'), {'email': 'audit@example.com'})
+		combined = ' '.join(cm.output)
+		self.assertIn('password_reset_requested', combined)
+		self.assertNotIn('audit@example.com', combined)
+
+	def test_password_reset_complete_is_logged(self):
+		from django.contrib.auth.tokens import default_token_generator
+		from django.utils.encoding import force_bytes
+		from django.utils.http import urlsafe_base64_encode
+
+		uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+		token = default_token_generator.make_token(self.user)
+		self.client.get(
+			reverse('webwi:password_reset_confirm', kwargs={'uidb64': uid, 'token': token}),
+			follow=True,
+		)
+		set_url = reverse('webwi:password_reset_confirm', kwargs={'uidb64': uid, 'token': 'set-password'})
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.client.post(
+				set_url,
+				{'new_password1': 'BrandNewSafe999!', 'new_password2': 'BrandNewSafe999!'},
+			)
+		self.assertIn('password_reset_complete', ' '.join(cm.output))
+
+	def test_raw_password_never_appears_in_audit_log(self):
+		"""The plaintext password must be absent from every audit log entry."""
+		with self.assertLogs('webwi.audit', level='DEBUG') as cm:
+			self.client.post(
+				reverse('webwi:login'),
+				{'username': 'audituser', 'password': self.password},
+			)
+		self.assertNotIn(self.password, ' '.join(cm.output))
+
+	def test_permission_grant_is_logged(self):
+		permission = Permission.objects.get(codename='view_user_directory')
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.user.user_permissions.add(permission)
+		combined = ' '.join(cm.output)
+		self.assertIn('permission_granted', combined)
+		self.assertIn('audituser', combined)
+
+	def test_permission_revoke_is_logged(self):
+		permission = Permission.objects.get(codename='view_user_directory')
+		self.user.user_permissions.add(permission)
+		with self.assertLogs('webwi.audit', level='INFO') as cm:
+			self.user.user_permissions.remove(permission)
+		combined = ' '.join(cm.output)
+		self.assertIn('permission_revoked', combined)
+		self.assertIn('audituser', combined)
