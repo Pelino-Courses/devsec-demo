@@ -1,0 +1,111 @@
+{% extends 'antoine/base.html' %}
+{% load static %}
+
+{% block title %}Audit Logs - UAS{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <!-- Login History Section -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-sign-in-alt"></i> Recent Login Activity (Last 100)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if logins %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>User</th>
+                                    <th>Timestamp</th>
+                                    <th>IP Address</th>
+                                    <th>Status</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for login in logins %}
+                                <tr>
+                                    <td><strong>{{ login.user.username }}</strong></td>
+                                    <td>{{ login.login_time|date:"M d, Y H:i" }}</td>
+                                    <td><code>{{ login.ip_address }}</code></td>
+                                    <td>
+                                        {% if login.success %}
+                                        <span class="badge bg-success">Success</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Failed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if not login.success %}
+                                        <small class="text-danger">{{ login.failure_reason }}</small>
+                                        {% else %}
+                                        <small class="text-muted">{{ login.user_agent|truncatewords:8 }}</small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        No login history available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Password Change History Section -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="fas fa-key"></i> Password Change History (Last 50)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if password_changes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>User</th>
+                                    <th>Changed At</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for change in password_changes %}
+                                <tr>
+                                    <td><strong>{{ change.user.username }}</strong></td>
+                                    <td>{{ change.changed_at|date:"M d, Y H:i" }}</td>
+                                    <td><code>{{ change.ip_address }}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        No password change history available.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a href="{% url 'antoine:dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-home"></i> Back to Dashboard
+                </a>
+                <a href="{% url 'antoine:manage_users' %}" class="btn btn-primary">
+                    <i class="fas fa-users"></i> Manage Users
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
