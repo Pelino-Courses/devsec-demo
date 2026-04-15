@@ -1,0 +1,8 @@
+{% extends "eduard/base.html" %} {% block title %}Dashboard{% endblock %} {% block content %}
+<h1>Welcome, {{ user.username }}!</h1>
+<p style="margin-top: 1rem; color: #555">You are logged in to the User Authentication Service.</p>
+<ul style="margin-top: 1.5rem; line-height: 2">
+  <li><a href="{% url 'eduard:profile' %}">View your profile</a></li>
+  <li><a href="{% url 'eduard:change_password' %}">Change your password</a></li>
+</ul>
+{% endblock %}
