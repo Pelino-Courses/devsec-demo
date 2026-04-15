@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - Antoine{% endblock %}
+
+{% block content %}
+<div class="dashboard-container" style="max-width: 700px;">
+    <h2 class="mb-4">Edit Your Profile</h2>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="id_first_name" class="form-label">First Name</label>
+                {{ form.first_name }}
+                {% if form.first_name.errors %}
+                    <div class="alert alert-danger mt-2">{{ form.first_name.errors }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <label for="id_last_name" class="form-label">Last Name</label>
+                {{ form.last_name }}
+                {% if form.last_name.errors %}
+                    <div class="alert alert-danger mt-2">{{ form.last_name.errors }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="id_email" class="form-label">Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                <div class="alert alert-danger mt-2">{{ form.email.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="id_phone_number" class="form-label">Phone Number</label>
+            {{ form.phone_number }}
+            {% if form.phone_number.errors %}
+                <div class="alert alert-danger mt-2">{{ form.phone_number.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="id_bio" class="form-label">Bio</label>
+            {{ form.bio }}
+            {% if form.bio.errors %}
+                <div class="alert alert-danger mt-2">{{ form.bio.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="id_avatar" class="form-label">Avatar</label>
+            {% if profile.avatar %}
+                <div class="mb-2">
+                    <img src="{{ profile.avatar.url }}" alt="Current Avatar" style="max-width: 150px; border-radius: 8px;">
+                </div>
+            {% endif %}
+            {{ form.avatar }}
+            {% if form.avatar.errors %}
+                <div class="alert alert-danger mt-2">{{ form.avatar.errors }}</div>
+            {% endif %}
+            <small class="form-text text-muted d-block mt-2">Max 5MB. Supported formats: JPG, PNG, GIF</small>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="{% url 'antoine:dashboard' %}" class="btn btn-secondary">Cancel</a>
+            <a href="{% url 'antoine:change_password' %}" class="btn btn-warning">Change Password</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

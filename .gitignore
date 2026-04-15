@@ -269,3 +269,15 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Django
+/logs/
+/media/
+/staticfiles/
+*.log
+db.sqlite3*
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
