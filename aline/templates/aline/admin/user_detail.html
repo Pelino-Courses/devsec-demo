@@ -1,0 +1,211 @@
+{% extends 'aline/base.html' %}
+
+{% block title %}User Detail - Management{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2>👤 User: {{ user.username }}</h2>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'aline:dashboard' %}">Dashboard</a></li>
+          <li class="breadcrumb-item"><a href="{% url 'aline:user_management' %}">Users</a></li>
+          <li class="breadcrumb-item active">{{ user.username }}</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- User Information -->
+    <div class="col-lg-4 mb-4">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">User Information</h5>
+        </div>
+        <div class="card-body">
+          <table class="table table-sm">
+            <tbody>
+              <tr>
+                <td><strong>Username:</strong></td>
+                <td>{{ user.username }}</td>
+              </tr>
+              <tr>
+                <td><strong>Email:</strong></td>
+                <td>{{ user.email|default:'N/A' }}</td>
+              </tr>
+              <tr>
+                <td><strong>Name:</strong></td>
+                <td>{{ user.get_full_name|default:'-' }}</td>
+              </tr>
+              <tr>
+                <td><strong>Joined:</strong></td>
+                <td>{{ user.date_joined|date:"M d, Y h:i A" }}</td>
+              </tr>
+              <tr>
+                <td><strong>Last Login:</strong></td>
+                <td>{{ user.last_login|date:"M d, Y h:i A"|default:'Never' }}</td>
+              </tr>
+              <tr>
+                <td><strong>Status:</strong></td>
+                <td>
+                  {% if user.is_active %}
+                    <span class="badge bg-success">Active</span>
+                  {% else %}
+                    <span class="badge bg-danger">Inactive</span>
+                  {% endif %}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Current Roles -->
+      <div class="card mt-3">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">Current Roles</h5>
+        </div>
+        <div class="card-body">
+          {% if user_groups %}
+            {% for group in user_groups %}
+              <span class="badge bg-info d-block mb-2">{{ group.name }}</span>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted">No roles assigned</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Manage Roles Form -->
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header bg-warning">
+          <h5 class="mb-0">⚙️ Manage User Roles</h5>
+        </div>
+        <div class="card-body">
+          <form method="post">
+            {% csrf_token %}
+
+            <!-- Groups Selection -->
+            <div class="mb-4">
+              <label class="form-label"><strong>Assign Roles:</strong></label>
+              <p class="text-muted small">Select one or more roles for this user</p>
+              
+              {% for group in all_groups %}
+              <div class="form-check">
+                <input 
+                  type="checkbox" 
+                  class="form-check-input" 
+                  name="groups" 
+                  value="{{ group.id }}"
+                  id="group_{{ group.id }}"
+                  {% if group in user_groups %}checked{% endif %}
+                >
+                <label class="form-check-label" for="group_{{ group.id }}">
+                  <strong>{{ group.name }}</strong>
+                  <br>
+                  <small class="text-muted">
+                    {% if group.name == "Student" %}
+                      Basic access - can view own profile
+                    {% elif group.name == "Instructor" %}
+                      Can view all students
+                    {% elif group.name == "Staff" %}
+                      Can manage users and content
+                    {% elif group.name == "Admin" %}
+                      Full system access
+                    {% endif %}
+                  </small>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- Admin Options (only visible to admins) -->
+           <div class="card bg-light mb-4">
+              <div class="card-body">
+                <h6>System Flags (Admin Only):</h6>
+                <div class="form-check">
+                  <input 
+                    type="checkbox" 
+                    class="form-check-input" 
+                    name="is_staff" 
+                    id="is_staff"
+                    {% if user.is_staff %}checked{% endif %}
+                    {% if not user.is_superuser and user != request.user %}disabled{% endif %}
+                  >
+                  <label class="form-check-label" for="is_staff">
+                    Staff Status (Can access Django admin)
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input 
+                    type="checkbox" 
+                    class="form-check-input" 
+                    name="is_superuser" 
+                    id="is_superuser"
+                    {% if user.is_superuser %}checked{% endif %}
+                    {% if user != request.user %}disabled{% endif %}
+                  >
+                  <label class="form-check-label" for="is_superuser">
+                    Superuser Status (Unrestricted access)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn btn-primary btn-lg">
+              💾 Save Changes
+            </button>
+            <a href="{% url 'aline:user_management' %}" class="btn btn-secondary btn-lg">
+              Cancel
+            </a>
+          </form>
+        </div>
+      </div>
+
+      <!-- Role Descriptions -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">📖 Role Definitions</h5>
+        </div>
+        <div class="card-body">
+          <dl class="row">
+            <dt class="col-sm-3">Student</dt>
+            <dd class="col-sm-9">
+              Can view own profile, change password, and access student dashboard.
+              This is the default role for new users.
+            </dd>
+
+            <dt class="col-sm-3">Instructor</dt>
+            <dd class="col-sm-9">
+              Can view all student profiles and information. Useful for TAs or instructors
+              who need to monitor student progress.
+            </dd>
+
+            <dt class="col-sm-3">Staff</dt>
+            <dd class="col-sm-9">
+              Can manage users, assign roles, and access user management interface.
+              Full permission to control user data (within limits).
+            </dd>
+
+            <dt class="col-sm-3">Admin</dt>
+            <dd class="col-sm-9">
+              Full system access including Django admin. Can create/modify anything.
+              Use with caution - should only assign to trusted users.
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Back Link -->
+  <div class="mt-4">
+    <a href="{% url 'aline:user_management' %}" class="btn btn-secondary">← Back to User List</a>
+  </div>
+</div>
+{% endblock %}

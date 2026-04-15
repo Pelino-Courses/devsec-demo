@@ -1,0 +1,270 @@
+{% extends 'aline/base.html' %} {% block title %}Dashboard - Student
+Portal{% endblock %} {% block content %}
+<div class="container">
+  <!-- Welcome Section -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="card-title">
+            Welcome, {{ user.first_name|default:user.username }}! 👋
+          </h2>
+          <p class="card-text text-muted">
+            Here's your personalized dashboard with quick access to your
+            account.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Widgets -->
+  <div class="row mb-4">
+    <!-- Student Info Widget -->
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="dashboard-widget">
+        <h5>📚 Student ID</h5>
+        <div style="font-size: 1.3rem; color: #2c3e50; font-weight: 600">
+          {{ profile.student_id }}
+        </div>
+        <small class="text-muted">Unique identifier</small>
+      </div>
+    </div>
+
+    <!-- Email Widget -->
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="dashboard-widget">
+        <h5>📧 Email Address</h5>
+        <div
+          style="
+            font-size: 1rem;
+            color: #2c3e50;
+            font-weight: 500;
+            word-break: break-all;
+          "
+        >
+          {{ user.email }}
+        </div>
+        <small class="text-muted">Contact email</small>
+      </div>
+    </div>
+
+    <!-- Account Created Widget -->
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="dashboard-widget">
+        <h5>📅 Account Created</h5>
+        <div style="font-size: 1rem; color: #2c3e50; font-weight: 500">
+          {{ profile.created_at|date:"M d, Y" }}
+        </div>
+        <small class="text-muted">Registration date</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <h4 class="mb-3">⚡ Quick Actions</h4>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card">
+        <div class="card-body text-center">
+          <h5 class="card-title">Edit Profile</h5>
+          <p class="card-text">
+            Update your personal information and contact details.
+          </p>
+          <a href="{% url 'aline:profile' %}" class="btn btn-primary"
+            >Go to Profile</a
+          >
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card">
+        <div class="card-body text-center">
+          <h5 class="card-title">Change Password</h5>
+          <p class="card-text">
+            Update your password and improve account security.
+          </p>
+          <a
+            href="{% url 'aline:password_change' %}"
+            class="btn btn-primary"
+            >Change your Password</a
+          >
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card">
+        <div class="card-body text-center">
+          <h5 class="card-title">Logout</h5>
+          <p class="card-text">Sign out from your account securely.</p>
+          <a
+            href="{% url 'aline:logout' %}"
+            class="btn btn-outline-danger"
+            >Logout</a
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portal Statistics -->
+  <div class="row">
+    <div class="col-12">
+      <h4 class="mb-3">📊 Portal Statistics</h4>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="dashboard-widget">
+        <h5>Total Active Students</h5>
+        <div class="number">{{ total_students }}</div>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="dashboard-widget">
+        <h5>Account Status</h5>
+        <p><span style="color: #27ae60; font-weight: bold">✓ Active</span></p>
+        <small class="text-muted">Your account is active and secure</small>
+      </div>
+    </div>
+    <div class="col-lg-4 col-md-6 mb-4">
+      <div class="dashboard-widget">
+        <h5>Security Status</h5>
+        <p><span style="color: #27ae60; font-weight: bold">✓ Secure</span></p>
+        <small class="text-muted">All security checks passed</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Information Section -->
+  <div class="row mt-4 mb-4">
+    <div class="col-12">
+      <div class="alert alert-info" role="alert">
+        <h5>ℹ️ About Your Account</h5>
+        <ul>
+          <li>
+            Your password is securely hashed and never stored in plain text
+          </li>
+          <li>Sessions are managed securely with proper CSRF protection</li>
+          <li>All forms are protected against unauthorized submissions</li>
+          <li>You can change your password anytime from your profile</li>
+          <li>
+            Last updated: {{ profile.updated_at|date:"M d, Y \a\t h:i A" }}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role-Based Privileged Actions -->
+  {% if is_instructor %}
+  <div class="row mt-4">
+    <div class="col-12">
+      <h4 class="mb-3">👨‍🎓 Instructor Functions</h4>
+    </div>
+    <div class="col-lg-6 mb-3">
+      <div class="card border-info">
+        <div class="card-body">
+          <h5 class="card-title">View Students</h5>
+          <p class="card-text">Access the list of all registered students.</p>
+          <a href="{% url 'aline:student_list' %}" class="btn btn-outline-info">
+            Manage Students
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if is_staff %}
+  <div class="row mt-4">
+    <div class="col-12">
+      <h4 class="mb-3">👨‍💼 Staff Functions</h4>
+    </div>
+    <div class="col-lg-6 mb-3">
+      <div class="card border-warning">
+        <div class="card-body">
+          <h5 class="card-title">User Management</h5>
+          <p class="card-text">Manage user accounts, roles, and permissions.</p>
+          <a href="{% url 'aline:user_management' %}" class="btn btn-outline-warning">
+            Manage Users
+          </a>
+        </div>
+      </div>
+    </div>
+    {% if is_instructor %}
+    <div class="col-lg-6 mb-3">
+      <div class="card border-info">
+        <div class="card-body">
+          <h5 class="card-title">View Students</h5>
+          <p class="card-text">Access the list of all registered students.</p>
+          <a href="{% url 'aline:student_list' %}" class="btn btn-outline-info">
+            Manage Students
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if is_admin %}
+  <div class="row mt-4">
+    <div class="col-12">
+      <h4 class="mb-3">🔐 Admin Functions</h4>
+    </div>
+    <div class="col-lg-4 mb-3">
+      <div class="card border-danger">
+        <div class="card-body">
+          <h5 class="card-title">Admin Dashboard</h5>
+          <p class="card-text">System statistics and management overview.</p>
+          <a href="{% url 'aline:admin_dashboard' %}" class="btn btn-outline-danger">
+            Admin Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+      <div class="card border-danger">
+        <div class="card-body">
+          <h5 class="card-title">User Management</h5>
+          <p class="card-text">Manage all user accounts and permissions.</p>
+          <a href="{% url 'aline:user_management' %}" class="btn btn-outline-danger">
+            Manage Users
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+      <div class="card border-danger">
+        <div class="card-body">
+          <h5 class="card-title">Django Admin</h5>
+          <p class="card-text">Full Django administration interface.</p>
+          <a href="/admin/" class="btn btn-outline-danger">
+            Go to Admin
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Role Display -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="alert alert-secondary" role="alert">
+        <strong>Your Role:</strong> {{ user_role|title }}
+        {% if is_admin %}
+          <span class="badge bg-danger">Admin</span>
+        {% elif is_staff %}
+          <span class="badge bg-warning">Staff</span>
+        {% elif is_instructor %}
+          <span class="badge bg-info">Instructor</span>
+        {% else %}
+          <span class="badge bg-success">Student</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
