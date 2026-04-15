@@ -1,0 +1,46 @@
+{% extends 'olivier/base.html' %}
+
+{% block title %}Profile - Authentication Service{% endblock %}
+
+{% block content %}
+<h1>Edit Profile</h1>
+<form method="post">
+    {% csrf_token %}
+    <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: #818cf8;">Account Info</h3>
+    {% for field in u_form %}
+    <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+            <ul class="errorlist">
+                {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <h3 style="margin-top: 2rem; margin-bottom: 1rem; font-size: 1.1rem; color: #818cf8;">Public Profile</h3>
+    {% for field in p_form %}
+    <div class="form-group">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+            <ul class="errorlist">
+                {% for error in field.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <input type="submit" value="Update All Information">
+</form>
+
+<div style="margin-top: 2rem; border-top: 1px solid var(--glass-border); padding-top: 1.5rem;">
+    <a href="{% url 'Munyabugingo:dashboard' %}" style="color: var(--text-muted); text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+        <span>&larr;</span> Back to Dashboard
+    </a>
+</div>
+{% endblock %}

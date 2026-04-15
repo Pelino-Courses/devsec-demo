@@ -1,0 +1,24 @@
+{% extends 'olivier/base.html' %}
+
+{% block title %}Login - MUNYABUGINGO{% endblock %}
+
+{% block content %}
+<h1>Sign In</h1>
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.GET.next }}">
+    <div class="form-group">
+        <label for="id_username">Username</label>
+        <input type="text" name="username" id="id_username" placeholder="Enter your username" required>
+    </div>
+    <div class="form-group">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" placeholder="Enter your password" required>
+    </div>
+    <button type="submit">Sign In</button>
+</form>
+
+<div style="margin-top: 2rem; text-align: center; color: var(--text-muted);">
+    Don't have an account? <a href="{% url 'Munyabugingo:register' %}" style="color: var(--primary); font-weight: 600; text-decoration: none;">Create Account</a>
+</div>
+{% endblock %}
