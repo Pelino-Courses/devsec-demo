@@ -10,9 +10,11 @@ from django.contrib.auth.views import (
     PasswordResetCompleteView,
 )
 from django.core.cache import cache
-from django.shortcuts import render
+from django.conf import settings
+from django.shortcuts import render, resolve_url
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import CreateView, TemplateView
 
 from .authorization import is_instructor
@@ -78,10 +80,32 @@ class RegisterView(CreateView):
 class UserLoginView(LoginThrottlingMixin, LoginView):
     template_name = 'uwase05/login.html'
     redirect_authenticated_user = True
+    redirect_field_name = 'next'
+
+    def get_success_url(self):
+        redirect_url = self.get_redirect_url()
+        if redirect_url and url_has_allowed_host_and_scheme(
+            redirect_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return redirect_url
+        return resolve_url(settings.LOGIN_REDIRECT_URL)
 
 
 class UserLogoutView(LogoutView):
     next_page = reverse_lazy('uwase05:login')
+    redirect_field_name = 'next'
+
+    def get_next_page(self):
+        next_page = super().get_next_page()
+        if next_page and url_has_allowed_host_and_scheme(
+            next_page,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return next_page
+        return self.next_page
 
 
 class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):

@@ -23,6 +23,7 @@ class AuthenticationFlowTests(TestCase):
         self.password_reset_url = reverse('uwase05:password_reset')
         self.password_reset_done_url = reverse('uwase05:password_reset_done')
         self.password_reset_complete_url = reverse('uwase05:password_reset_complete')
+        self.logout_url = reverse('uwase05:logout')
         self.instructor_url = reverse('uwase05:instructor_dashboard')
 
     def test_register_new_user(self):
@@ -45,6 +46,20 @@ class AuthenticationFlowTests(TestCase):
         response = self.client.get(self.dashboard_url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Dashboard')
+
+    def test_login_redirects_to_safe_next_target(self):
+        response = self.client.post(
+            f'{self.login_url}?next={self.profile_url}',
+            {'username': 'tester', 'password': 'StrongPass123'},
+        )
+        self.assertRedirects(response, self.profile_url)
+
+    def test_login_ignores_external_next_target(self):
+        response = self.client.post(
+            f'{self.login_url}?next=https://malicious.example.com',
+            {'username': 'tester', 'password': 'StrongPass123'},
+        )
+        self.assertRedirects(response, self.dashboard_url)
 
     def test_login_throttles_repeated_failed_attempts(self):
         for attempt in range(1, 6):
@@ -73,6 +88,13 @@ class AuthenticationFlowTests(TestCase):
             response,
             'Too many failed login attempts. Please try again in 5 minutes.',
         )
+
+    def test_logout_ignores_external_next_target(self):
+        self.client.login(username='tester', password='StrongPass123')
+        response = self.client.post(
+            f'{self.logout_url}?next=https://malicious.example.com'
+        )
+        self.assertRedirects(response, self.login_url)
 
     def test_logout_prevents_dashboard_access(self):
         self.client.login(username='tester', password='StrongPass123')
