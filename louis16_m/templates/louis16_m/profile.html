@@ -1,0 +1,17 @@
+<h2>Profile for {{ target_user.username }}</h2>
+{% if not is_own_profile %}
+    <p><em>Viewing a profile as a privileged user.</em></p>
+{% else %}
+    <p>Status: Authenticated</p>
+    <p>This is your private profile area.</p>
+{% endif %}
+{% if is_own_profile %}
+    <p><a href="{% url 'louis16_m:password_change' %}">Change Password</a></p>
+{% endif %}
+{% if has_privileged_access %}
+    <p><a href="{% url 'louis16_m:privileged_dashboard' %}">Privileged Dashboard</a></p>
+{% endif %}
+<form action="{% url 'louis16_m:logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit">Logout</button>
+</form>
