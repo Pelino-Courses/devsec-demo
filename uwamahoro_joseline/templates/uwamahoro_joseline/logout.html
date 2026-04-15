@@ -1,0 +1,22 @@
+{% extends "uwamahoro_joseline/auth_base.html" %}
+
+{% block title %}Sign Out — SecureAuth{% endblock %}
+
+{% block content %}
+<div style="text-align:center;margin-bottom:1.75rem">
+    <div style="width:56px;height:56px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#dc2626" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+    </div>
+    <h1 class="auth-heading">Sign out</h1>
+    <p class="auth-subheading">Are you sure you want to end your session?</p>
+</div>
+
+<form method="post" style="display:flex;flex-direction:column;gap:.75rem">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger btn-full">Yes, sign me out</button>
+    <a href="{% url 'uwamahoro_joseline:dashboard' %}" class="btn btn-secondary btn-full">Cancel</a>
+</form>
+{% endblock %}

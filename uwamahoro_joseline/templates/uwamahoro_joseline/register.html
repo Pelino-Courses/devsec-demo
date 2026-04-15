@@ -1,0 +1,43 @@
+{% extends "uwamahoro_joseline/auth_base.html" %}
+
+{% block title %}Create Account — SecureAuth{% endblock %}
+
+{% block content %}
+<h1 class="auth-heading">Create an account</h1>
+<p class="auth-subheading">Fill in the details below to get started.</p>
+
+{% if form.non_field_errors %}
+    <div class="form-error-banner">{{ form.non_field_errors }}</div>
+{% endif %}
+
+<form method="post" novalidate>
+    {% csrf_token %}
+
+    {% for field in form %}
+        <div class="form-group">
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.help_text %}
+                <p class="helptext">{{ field.help_text }}</p>
+            {% endif %}
+            {% if field.errors %}
+                <ul class="errorlist">
+                    {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary btn-full" style="margin-top:.25rem">
+        Create account
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+    </button>
+</form>
+
+<p class="auth-footer">
+    Already have an account?
+    <a href="{% url 'uwamahoro_joseline:login' %}">Sign in</a>
+</p>
+{% endblock %}
