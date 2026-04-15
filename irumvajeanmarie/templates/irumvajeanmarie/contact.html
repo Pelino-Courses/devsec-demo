@@ -1,0 +1,50 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Contact - UAS{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Contact Us / Feedback</h2>
+  <div id="contact-status" style="display:none; padding:10px; margin-bottom:10px;"></div>
+  
+  <form id="contact-form">
+    {% csrf_token %}
+    <label for="message">Message:</label>
+    <textarea id="message" name="message" rows="5" required></textarea>
+    <button type="submit">Send Message</button>
+  </form>
+</div>
+
+<script>
+document.getElementById('contact-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const message = document.getElementById('message').value;
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const statusDiv = document.getElementById('contact-status');
+  
+  fetch("{% url 'irumvajeanmarie:contact' %}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken
+    },
+    body: JSON.stringify({message: message})
+  })
+  .then(response => response.json().then(data => ({status: response.status, body: data})))
+  .then(result => {
+    statusDiv.style.display = 'block';
+    if (result.status === 200 && result.body.status === 'success') {
+      statusDiv.innerHTML = '<span style="color:green;">' + result.body.message + '</span>';
+      document.getElementById('message').value = '';
+    } else {
+      statusDiv.innerHTML = '<span style="color:red;">' + (result.body.message || 'Error occurred') + '</span>';
+    }
+  })
+  .catch(error => {
+    statusDiv.style.display = 'block';
+    statusDiv.innerHTML = '<span style="color:red;">Network Error</span>';
+  });
+});
+</script>
+{% endblock %}
