@@ -472,4 +472,43 @@ class AuditLogTestCase(TestCase):
         self.client.login(username='testuser', password='StrongPass123!')
         with self.assertLogs('irumvajeanmarie.audit', level='INFO') as cm:
             self.client.get(reverse('irumvajeanmarie:logout'))
-        self.assertTrue(any('Logout: username=testuser' in log for log in cm.output))
+        self.assertTrue(any('Logout: username=testuser' in log for log in cm.output))
+
+class StoredXSSTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+        self.client.login(username='testuser', password='StrongPass123!')
+
+    def test_bio_with_script_tag_is_escaped(self):
+        self.client.post(reverse('irumvajeanmarie:profile'), {
+            'bio': '<script>alert("XSS")</script>',
+        })
+        response = self.client.get(reverse('irumvajeanmarie:profile'))
+        self.assertContains(response, '&lt;script&gt;')
+        self.assertNotContains(response, '<script>alert("XSS")</script>')
+
+    def test_bio_with_html_tags_is_escaped(self):
+        self.client.post(reverse('irumvajeanmarie:profile'), {
+            'bio': '<b>bold</b><img src=x onerror=alert(1)>',
+        })
+        response = self.client.get(reverse('irumvajeanmarie:profile'))
+        self.assertContains(response, '&lt;b&gt;')
+        self.assertNotContains(response, '<b>bold</b>')
+
+    def test_username_display_is_escaped(self):
+        response = self.client.get(reverse('irumvajeanmarie:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'testuser')
+
+    def test_legitimate_bio_renders_correctly(self):
+        self.client.post(reverse('irumvajeanmarie:profile'), {
+            'bio': 'I am a student at UR.',
+        })
+        response = self.client.get(reverse('irumvajeanmarie:profile'))
+        self.assertContains(response, 'I am a student at UR.')
