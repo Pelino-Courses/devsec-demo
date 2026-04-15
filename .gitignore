@@ -270,3 +270,4 @@ cython_debug/
 #.idea/
 
 audit.log
+media/
