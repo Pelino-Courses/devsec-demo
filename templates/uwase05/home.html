@@ -1,0 +1,13 @@
+{% extends 'uwase05/base.html' %}
+
+{% block title %}Welcome{% endblock %}
+{% block header %}Welcome to the User Authentication Service Demo{% endblock %}
+
+{% block content %}
+<p>This application demonstrates secure user registration, login, logout, protected pages, password change, and profile access.</p>
+{% if user.is_authenticated %}
+    <p>Hello, {{ user.username }}. Use the links above to manage your account.</p>
+{% else %}
+    <p>Please <a href="{% url 'uwase05:register' %}">register</a> or <a href="{% url 'uwase05:login' %}">log in</a>.</p>
+{% endif %}
+{% endblock %}
