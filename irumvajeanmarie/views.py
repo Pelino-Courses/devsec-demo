@@ -8,8 +8,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 import json
 from datetime import timedelta
-from .forms import RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm
-from .models import Profile, LoginAttempt, AccountLockout, ContactMessage
+from .forms import (
+    RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm,
+    AvatarUploadForm, DocumentUploadForm,
+)
+from .models import Profile, LoginAttempt, AccountLockout, ContactMessage, UserDocument
 from .decorators import instructor_required, admin_required
 import logging
 
@@ -229,3 +232,56 @@ def contact_view(request):
         
     ContactMessage.objects.create(user=request.user, message=message)
     return JsonResponse({'status': 'success', 'message': 'Message sent successfully.'})
+
+
+@login_required(login_url='irumvajeanmarie:login')
+def upload_avatar(request):
+    profile, _ = Profile.objects.get_or_create(
+        user=request.user,
+        defaults={'role': Profile.ROLE_STUDENT}
+    )
+    if request.method == 'POST':
+        form = AvatarUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            profile.avatar = form.cleaned_data['avatar']
+            profile.save()
+            messages.success(request, 'Avatar updated successfully.')
+            return redirect('irumvajeanmarie:upload_avatar')
+    else:
+        form = AvatarUploadForm()
+    return render(request, 'irumvajeanmarie/avatar_upload.html', {'form': form, 'profile': profile})
+
+
+@login_required(login_url='irumvajeanmarie:login')
+def upload_document(request):
+    user_documents = UserDocument.objects.filter(user=request.user).order_by('-uploaded_at')
+    if request.method == 'POST':
+        form = DocumentUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = form.cleaned_data['document']
+            UserDocument.objects.create(
+                user=request.user,
+                file=uploaded_file,
+                original_filename=uploaded_file.name,
+            )
+            messages.success(request, 'Document uploaded successfully.')
+            return redirect('irumvajeanmarie:upload_document')
+    else:
+        form = DocumentUploadForm()
+    return render(request, 'irumvajeanmarie/document_upload.html', {
+        'form': form,
+        'documents': user_documents,
+    })
+
+
+@login_required(login_url='irumvajeanmarie:login')
+def delete_document(request, document_id):
+    document = get_object_or_404(UserDocument, pk=document_id)
+    if document.user != request.user:
+        return HttpResponseForbidden('You are not allowed to delete this document.')
+    if request.method == 'POST':
+        document.file.delete(save=False)
+        document.delete()
+        messages.success(request, 'Document deleted successfully.')
+        return redirect('irumvajeanmarie:upload_document')
+    return HttpResponseForbidden('Method not allowed.')

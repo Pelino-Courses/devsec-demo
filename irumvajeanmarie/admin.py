@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Profile, LoginAttempt, AccountLockout, ContactMessage
+from .models import Profile, LoginAttempt, AccountLockout, ContactMessage, UserDocument
 import logging
 
 logger = logging.getLogger('irumvajeanmarie.audit')
@@ -43,3 +43,11 @@ class ContactMessageAdmin(admin.ModelAdmin):
     list_display = ['user', 'created_at']
     search_fields = ['user__username', 'message']
     readonly_fields = ['created_at']
+
+
+@admin.register(UserDocument)
+class UserDocumentAdmin(admin.ModelAdmin):
+    list_display = ['original_filename', 'user', 'uploaded_at']
+    list_filter = ['uploaded_at']
+    search_fields = ['user__username', 'original_filename']
+    readonly_fields = ['uploaded_at']

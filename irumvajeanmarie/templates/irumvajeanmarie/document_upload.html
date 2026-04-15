@@ -1,0 +1,55 @@
+{% extends 'irumvajeanmarie/base.html' %}
+{% block title %}Upload Document{% endblock %}
+{% block content %}
+<h1>My Documents</h1>
+
+{% if documents %}
+  <div class="card">
+    <h2>Uploaded Documents</h2>
+    <ul id="document-list" style="list-style:none; padding:0;">
+      {% for doc in documents %}
+        <li style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
+          <span>📄 {{ doc.original_filename }}
+            <small style="color:#666; margin-left:10px;">{{ doc.uploaded_at|date:"Y-m-d H:i" }}</small>
+          </span>
+          <form method="post"
+                action="{% url 'irumvajeanmarie:delete_document' doc.pk %}"
+                id="delete-doc-{{ doc.pk }}"
+                style="display:inline;">
+            {% csrf_token %}
+            <button type="submit"
+                    id="delete-btn-{{ doc.pk }}"
+                    style="background:#c0392b; padding:5px 12px; font-size:0.85em;"
+                    onclick="return confirm('Delete {{ doc.original_filename }}?')">
+              Delete
+            </button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% else %}
+  <p><em>You have not uploaded any documents yet.</em></p>
+{% endif %}
+
+<div class="card">
+  <h2>Upload a New Document</h2>
+  <form method="post" enctype="multipart/form-data" id="document-upload-form">
+    {% csrf_token %}
+    <div>
+      <label for="{{ form.document.id_for_label }}">Choose file (PDF, DOC, DOCX, TXT — max 5 MB):</label>
+      {{ form.document }}
+      {% if form.document.errors %}
+        <ul class="error-list">
+          {% for error in form.document.errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+    <br>
+    <button type="submit" id="document-upload-submit">Upload Document</button>
+  </form>
+</div>
+<a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn" style="margin-top:10px;">← Back to Dashboard</a>
+{% endblock %}

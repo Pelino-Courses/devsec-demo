@@ -31,4 +31,7 @@ urlpatterns = [
     path('admin-panel/', views.admin_panel, name='admin_panel'),
     path('contact/', views.contact_view, name='contact'),
     path('contact-page/', views.contact_page_view, name='contact_page'),
+    path('upload/avatar/', views.upload_avatar, name='upload_avatar'),
+    path('upload/document/', views.upload_document, name='upload_document'),
+    path('upload/document/<int:document_id>/delete/', views.delete_document, name='delete_document'),
 ]

@@ -6,7 +6,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.utils import timezone
 from datetime import timedelta
-from .models import Profile, LoginAttempt, AccountLockout
+from .models import Profile, LoginAttempt, AccountLockout, UserDocument
 
 
 class RegistrationTestCase(TestCase):
@@ -323,7 +323,7 @@ class BruteForceTestCase(TestCase):
 
     def test_locked_account_cannot_login_with_correct_password(self):
         AccountLockout.objects.create(
-            username='testuser', 
+            username='testuser',
             locked_until=timezone.now() + timedelta(minutes=15)
         )
         response = self.client.post(reverse('irumvajeanmarie:login'), {
@@ -335,7 +335,7 @@ class BruteForceTestCase(TestCase):
 
     def test_lockout_expires(self):
         AccountLockout.objects.create(
-            username='testuser', 
+            username='testuser',
             locked_until=timezone.now() - timedelta(minutes=1)
         )
         response = self.client.post(reverse('irumvajeanmarie:login'), {
@@ -362,10 +362,8 @@ class CSRFHandlingTestCase(TestCase):
     def test_post_with_valid_csrf_token_succeeds(self):
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_client.login(username='testuser', password='StrongPass123!')
-        
         resp = csrf_client.get(reverse('irumvajeanmarie:contact_page'))
         csrftoken = resp.cookies['csrftoken'].value
-        
         response = csrf_client.post(
             reverse('irumvajeanmarie:contact'),
             data={'message': 'Valid message'},
@@ -373,18 +371,17 @@ class CSRFHandlingTestCase(TestCase):
             HTTP_X_CSRFTOKEN=csrftoken
         )
         self.assertEqual(response.status_code, 200)
-        
+
     def test_post_without_csrf_token_rejected(self):
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_client.login(username='testuser', password='StrongPass123!')
-        
         response = csrf_client.post(
             reverse('irumvajeanmarie:contact'),
             data={'message': 'Hacker message'},
             content_type='application/json'
         )
         self.assertEqual(response.status_code, 403)
-        
+
     def test_unauthenticated_access_redirects(self):
         response = self.client.post(reverse('irumvajeanmarie:contact'), {'message': 'Hi'})
         self.assertRedirects(response, '/irumvajeanmarie/login/?next=/irumvajeanmarie/contact/')
@@ -424,7 +421,7 @@ class SafeRedirectTestCase(TestCase):
             'username': 'testuser', 'password': 'StrongPass123!'
         })
         self.assertRedirects(response, reverse('irumvajeanmarie:dashboard'))
-        
+
     def test_logout_with_unsafe_next_parameter_falls_back(self):
         self.client.login(username='testuser', password='StrongPass123!')
         response = self.client.get(
@@ -474,6 +471,7 @@ class AuditLogTestCase(TestCase):
             self.client.get(reverse('irumvajeanmarie:logout'))
         self.assertTrue(any('Logout: username=testuser' in log for log in cm.output))
 
+
 class StoredXSSTestCase(TestCase):
     def setUp(self):
         self.client = Client()
@@ -512,3 +510,151 @@ class StoredXSSTestCase(TestCase):
         })
         response = self.client.get(reverse('irumvajeanmarie:profile'))
         self.assertContains(response, 'I am a student at UR.')
+
+
+class AvatarUploadTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='uploader', email='uploader@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+        self.client.login(username='uploader', password='StrongPass123!')
+        self.url = reverse('irumvajeanmarie:upload_avatar')
+
+    def _make_gif(self, name='avatar.gif'):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        # Minimal valid GIF89a
+        gif_content = (
+            b'GIF89a\x01\x00\x01\x00\x00\xff\x00,'
+            b'\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'
+        )
+        return SimpleUploadedFile(name, gif_content, content_type='image/gif')
+
+    def test_avatar_upload_page_loads(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_avatar_upload_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertRedirects(
+            response,
+            '/irumvajeanmarie/login/?next=/irumvajeanmarie/upload/avatar/'
+        )
+
+    def test_valid_image_upload_accepted(self):
+        gif_file = self._make_gif()
+        response = self.client.post(self.url, {'avatar': gif_file})
+        self.assertRedirects(response, self.url)
+        profile = Profile.objects.get(user=self.user)
+        self.assertTrue(bool(profile.avatar))
+
+    def test_invalid_file_type_rejected(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        php_file = SimpleUploadedFile('shell.php', b'<?php echo 1; ?>', 'application/x-php')
+        response = self.client.post(self.url, {'avatar': php_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'valid image')
+
+    def test_file_too_large_rejected(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        large_content = b'A' * (2 * 1024 * 1024 + 1)
+        large_file = SimpleUploadedFile('big.gif', large_content, 'image/gif')
+        response = self.client.post(self.url, {'avatar': large_file})
+        self.assertEqual(response.status_code, 200)
+        profile = Profile.objects.get(user=self.user)
+        self.assertFalse(bool(profile.avatar))
+
+
+class DocumentUploadTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='docuser', email='docuser@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+        self.client.login(username='docuser', password='StrongPass123!')
+        self.upload_url = reverse('irumvajeanmarie:upload_document')
+
+    def _make_file(self, name, content=b'%PDF-1.4 sample', content_type='application/pdf'):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile(name, content, content_type=content_type)
+
+    def test_document_upload_page_loads(self):
+        response = self.client.get(self.upload_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_document_upload_requires_login(self):
+        self.client.logout()
+        response = self.client.get(self.upload_url)
+        self.assertRedirects(
+            response,
+            '/irumvajeanmarie/login/?next=/irumvajeanmarie/upload/document/'
+        )
+
+    def test_valid_document_upload_accepted(self):
+        pdf_file = self._make_file('report.pdf')
+        response = self.client.post(self.upload_url, {'document': pdf_file})
+        self.assertRedirects(response, self.upload_url)
+        self.assertTrue(
+            UserDocument.objects.filter(user=self.user, original_filename='report.pdf').exists()
+        )
+
+    def test_invalid_document_type_rejected(self):
+        exe_file = self._make_file('malware.exe', b'MZ\x90\x00', 'application/octet-stream')
+        response = self.client.post(self.upload_url, {'document': exe_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'not allowed')
+        self.assertFalse(UserDocument.objects.filter(user=self.user).exists())
+
+    def test_document_too_large_rejected(self):
+        large_content = b'A' * (5 * 1024 * 1024 + 1)
+        large_file = self._make_file('giant.txt', large_content, 'text/plain')
+        response = self.client.post(self.upload_url, {'document': large_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'too large')
+        self.assertFalse(UserDocument.objects.filter(user=self.user).exists())
+
+
+class DocumentDeletionTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username='owner', email='owner@example.com', password='StrongPass123!'
+        )
+        self.other = User.objects.create_user(
+            username='other', email='other@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.owner, role=Profile.ROLE_STUDENT)
+        Profile.objects.create(user=self.other, role=Profile.ROLE_STUDENT)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile('doc.txt', b'hello', content_type='text/plain')
+        self.doc = UserDocument.objects.create(
+            user=self.owner,
+            file=f,
+            original_filename='doc.txt',
+        )
+        self.delete_url = reverse(
+            'irumvajeanmarie:delete_document',
+            kwargs={'document_id': self.doc.pk}
+        )
+
+    def test_owner_can_delete_document(self):
+        self.client.login(username='owner', password='StrongPass123!')
+        response = self.client.post(self.delete_url)
+        self.assertRedirects(response, reverse('irumvajeanmarie:upload_document'))
+        self.assertFalse(UserDocument.objects.filter(pk=self.doc.pk).exists())
+
+    def test_non_owner_delete_returns_403(self):
+        self.client.login(username='other', password='StrongPass123!')
+        response = self.client.post(self.delete_url)
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(UserDocument.objects.filter(pk=self.doc.pk).exists())
+
+    def test_delete_requires_login(self):
+        response = self.client.post(self.delete_url)
+        self.assertRedirects(
+            response,
+            f'/irumvajeanmarie/login/?next=/irumvajeanmarie/upload/document/{self.doc.pk}/delete/'
+        )
