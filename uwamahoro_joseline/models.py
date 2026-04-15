@@ -9,3 +9,9 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} profile"
+
+    class Meta:
+        permissions = [
+            ("can_view_all_profiles", "Can view all user profiles"),
+            ("can_manage_users", "Can promote or demote users"),
+        ]

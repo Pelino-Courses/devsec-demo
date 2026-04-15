@@ -1,8 +1,23 @@
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, Permission, User
+from django.contrib.contenttypes.models import ContentType
 from django.test import Client, TestCase
 from django.urls import reverse
 
 from .models import Profile
+
+
+def make_instructor_group():
+    """Helper: create the Instructor group with both RBAC permissions."""
+    content_type = ContentType.objects.get_for_model(Profile)
+    view_perm = Permission.objects.get(
+        codename="can_view_all_profiles", content_type=content_type
+    )
+    manage_perm = Permission.objects.get(
+        codename="can_manage_users", content_type=content_type
+    )
+    group, _ = Group.objects.get_or_create(name="Instructor")
+    group.permissions.set([view_perm, manage_perm])
+    return group
 
 
 class RegistrationTests(TestCase):
@@ -228,3 +243,139 @@ class ProfileTests(TestCase):
         response = self.client.get(reverse("uwamahoro_joseline:profile"))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Profile.objects.filter(user=self.user).exists())
+
+
+# ── RBAC: Anonymous ───────────────────────────────────────────────────────────
+
+class RBACAnonymousTests(TestCase):
+    """Anonymous users are redirected to login for all protected routes."""
+
+    def setUp(self):
+        self.client = Client()
+        self.target = User.objects.create_user(username="target", password="Pass123!")
+
+    def test_instructor_panel_redirects_anonymous(self):
+        response = self.client.get(reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login/", response["Location"])
+
+    def test_promote_view_redirects_anonymous(self):
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.target.pk]),
+            {"action": "promote"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login/", response["Location"])
+
+    def test_dashboard_redirects_anonymous(self):
+        response = self.client.get(reverse("uwamahoro_joseline:dashboard"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login/", response["Location"])
+
+
+# ── RBAC: Student ─────────────────────────────────────────────────────────────
+
+class RBACStudentTests(TestCase):
+    """Authenticated students are blocked from instructor-only routes."""
+
+    def setUp(self):
+        self.client = Client()
+        self.student = User.objects.create_user(username="student", password="TestPass123!")
+        self.target = User.objects.create_user(username="target", password="Pass123!")
+        self.client.login(username="student", password="TestPass123!")
+
+    def test_instructor_panel_forbidden_for_student(self):
+        response = self.client.get(reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_promote_view_forbidden_for_student(self):
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.target.pk]),
+            {"action": "promote"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_student_cannot_gain_instructor_role_via_post(self):
+        """Blocked student POST must not change the target's group membership."""
+        group = make_instructor_group()
+        self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.target.pk]),
+            {"action": "promote"},
+        )
+        self.assertFalse(self.target.groups.filter(pk=group.pk).exists())
+
+    def test_student_can_access_own_dashboard(self):
+        response = self.client.get(reverse("uwamahoro_joseline:dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_student_can_access_own_profile(self):
+        response = self.client.get(reverse("uwamahoro_joseline:profile"))
+        self.assertEqual(response.status_code, 200)
+
+
+# ── RBAC: Instructor ──────────────────────────────────────────────────────────
+
+class RBACInstructorTests(TestCase):
+    """Instructors can access the panel and perform user management."""
+
+    def setUp(self):
+        self.client = Client()
+        self.group = make_instructor_group()
+        self.instructor = User.objects.create_user(
+            username="instructor", password="TestPass123!"
+        )
+        self.student = User.objects.create_user(
+            username="student", password="TestPass123!"
+        )
+        self.instructor.groups.add(self.group)
+        # Reload to clear Django's per-request permission cache
+        self.instructor = User.objects.get(pk=self.instructor.pk)
+        self.client.login(username="instructor", password="TestPass123!")
+
+    def test_instructor_can_access_panel(self):
+        response = self.client.get(reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_instructor_panel_lists_all_users(self):
+        response = self.client.get(reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertContains(response, "student")
+        self.assertContains(response, "instructor")
+
+    def test_instructor_can_promote_student(self):
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.student.pk]),
+            {"action": "promote"},
+        )
+        self.assertRedirects(response, reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertTrue(self.student.groups.filter(pk=self.group.pk).exists())
+
+    def test_instructor_can_demote_user(self):
+        self.student.groups.add(self.group)
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.student.pk]),
+            {"action": "demote"},
+        )
+        self.assertRedirects(response, reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertFalse(self.student.groups.filter(pk=self.group.pk).exists())
+
+    def test_invalid_action_does_not_change_role(self):
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.student.pk]),
+            {"action": "hack"},
+        )
+        self.assertRedirects(response, reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertFalse(self.student.groups.filter(pk=self.group.pk).exists())
+
+    def test_promote_get_request_is_ignored(self):
+        """GET to the promote URL should redirect without changing anything."""
+        response = self.client.get(
+            reverse("uwamahoro_joseline:promote_user", args=[self.student.pk])
+        )
+        self.assertRedirects(response, reverse("uwamahoro_joseline:instructor_panel"))
+        self.assertFalse(self.student.groups.filter(pk=self.group.pk).exists())
+
+    def test_instructor_can_still_access_student_pages(self):
+        response = self.client.get(reverse("uwamahoro_joseline:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        response = self.client.get(reverse("uwamahoro_joseline:profile"))
+        self.assertEqual(response.status_code, 200)

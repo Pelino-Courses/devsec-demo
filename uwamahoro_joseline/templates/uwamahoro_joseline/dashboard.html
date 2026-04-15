@@ -8,9 +8,9 @@
     <p class="welcome-greeting">Good to see you,</p>
     <h1 class="welcome-name">{{ user.get_full_name|default:user.username }}</h1>
     <p class="welcome-meta">
-        <span class="badge badge-green" style="background:rgba(255,255,255,.2);color:white;margin-right:.5rem">
+        <span class="badge" style="background:rgba(255,255,255,.2);color:white;margin-right:.5rem">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
-            Active session
+            {% if perms.uwamahoro_joseline.can_view_all_profiles %}Instructor{% else %}Student{% endif %}
         </span>
         Signed in as <strong>{{ user.username }}</strong>
     </p>

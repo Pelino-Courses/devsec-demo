@@ -29,7 +29,17 @@
                 <p style="font-size:1.125rem;font-weight:700;color:var(--gray-900);margin-bottom:.125rem">
                     {{ user.get_full_name|default:user.username }}
                 </p>
-                <p style="color:var(--gray-500);font-size:.875rem;margin-bottom:1.25rem">@{{ user.username }}</p>
+                <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem">
+                    <span style="color:var(--gray-500);font-size:.875rem">@{{ user.username }}</span>
+                    {% if perms.uwamahoro_joseline.can_view_all_profiles %}
+                        <span class="badge" style="background:#faf5ff;color:#6d28d9;border:1px solid #ddd6fe">
+                            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Instructor
+                        </span>
+                    {% else %}
+                        <span class="badge badge-blue">Student</span>
+                    {% endif %}
+                </div>
 
                 <div class="detail-row">
                     <span class="detail-label">Username</span>

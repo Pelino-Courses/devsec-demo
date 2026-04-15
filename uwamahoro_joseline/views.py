@@ -2,12 +2,17 @@ from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
-from django.shortcuts import redirect, render
+from django.contrib.auth.models import Group, User
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from .decorators import instructor_required
 from .forms import RegistrationForm
 from .models import Profile
 
+
+# ── Public views ─────────────────────────────────────────────────────────────
 
 def register_view(request):
     if request.user.is_authenticated:
@@ -57,6 +62,8 @@ def logout_view(request):
     return render(request, "uwamahoro_joseline/logout.html")
 
 
+# ── Student views (authenticated) ────────────────────────────────────────────
+
 @login_required
 def dashboard_view(request):
     return render(request, "uwamahoro_joseline/dashboard.html")
@@ -85,3 +92,46 @@ def password_change_view(request):
 @login_required
 def password_change_done_view(request):
     return render(request, "uwamahoro_joseline/password_change_done.html")
+
+
+# ── Instructor views (Instructor group required) ──────────────────────────────
+
+@instructor_required
+def instructor_panel_view(request):
+    """List all registered users and their roles. Instructor-only."""
+    users = User.objects.select_related("profile").order_by("date_joined")
+    instructor_group = Group.objects.filter(name="Instructor").first()
+    instructor_ids = (
+        set(instructor_group.user_set.values_list("id", flat=True))
+        if instructor_group
+        else set()
+    )
+    return render(
+        request,
+        "uwamahoro_joseline/instructor_panel.html",
+        {"users": users, "instructor_ids": instructor_ids},
+    )
+
+
+@instructor_required
+def promote_user_view(request, user_id):
+    """Promote or demote a user to/from the Instructor group. Requires can_manage_users."""
+    if not request.user.has_perm("uwamahoro_joseline.can_manage_users"):
+        raise PermissionDenied
+    if request.method != "POST":
+        return redirect("uwamahoro_joseline:instructor_panel")
+
+    target_user = get_object_or_404(User, pk=user_id)
+    instructor_group = get_object_or_404(Group, name="Instructor")
+    action = request.POST.get("action")
+
+    if action == "promote":
+        target_user.groups.add(instructor_group)
+        messages.success(request, f"{target_user.username} promoted to Instructor.")
+    elif action == "demote":
+        target_user.groups.remove(instructor_group)
+        messages.success(request, f"{target_user.username} demoted to Student.")
+    else:
+        messages.error(request, "Invalid action.")
+
+    return redirect("uwamahoro_joseline:instructor_panel")
