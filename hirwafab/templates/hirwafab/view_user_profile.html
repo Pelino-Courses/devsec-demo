@@ -1,0 +1,38 @@
+{% extends 'hirwafab/base.html' %}
+
+{% block title %}{{ profile.user.username }}'s Profile{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-wrapper">
+        <h1>{{ profile.user.get_full_name|default:profile.user.username }}</h1>
+
+        <div class="profile-header">
+            <div class="avatar">
+                {% if profile.avatar %}
+                    <img src="{{ profile.avatar.url }}" alt="Profile picture">
+                {% else %}
+                    {{ profile.user.username|first|upper }}
+                {% endif %}
+            </div>
+            <div class="profile-info">
+                <div class="profile-info-row"><strong>Username:</strong> {{ profile.user.username }}</div>
+                <div class="profile-info-row"><strong>Email:</strong> {{ profile.user.email }}</div>
+                <div class="profile-info-row"><strong>Joined:</strong> {{ profile.user.date_joined|date:"F j, Y" }}</div>
+                <div class="profile-info-row"><strong>Last login:</strong> {{ profile.user.last_login|date:"F j, Y"|default:"Never" }}</div>
+            </div>
+        </div>
+
+        {% if profile.bio %}
+        <div class="info-section">
+            <h3>Bio</h3>
+            <p>{{ profile.bio }}</p>
+        </div>
+        {% endif %}
+
+        <div style="margin-top:32px;">
+            <a href="{% url 'hirwafab:user_directory_full' %}" class="btn btn-outline" style="width:auto; padding:10px 24px;">Back to Directory</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
