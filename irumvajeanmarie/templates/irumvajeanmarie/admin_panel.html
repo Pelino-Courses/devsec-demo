@@ -1,0 +1,93 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Admin Control Panel - UAS Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    <div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h1 style="margin: 0; font-size: 1.75rem; color: var(--nav-bg);">System Administration</h1>
+            <p style="margin: 0.5rem 0 0; color: var(--text-muted);">Manage users, roles, and system-wide configurations.</p>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn outline" style="text-decoration: none;">Dashboard</a>
+            <span class="role-badge role-admin" style="align-self: center;">ADMINISTRATOR</span>
+        </div>
+    </div>
+
+    <!-- Quick Stats for Admin -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="card" style="padding: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+            <div style="background: #eff6ff; color: #3b82f6; padding: 0.75rem; border-radius: 12px;">
+                <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <span style="display: block; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Total Users</span>
+                <span style="font-size: 1.5rem; font-weight: 700; color: var(--nav-bg);">{{ profiles|length }}</span>
+            </div>
+        </div>
+        <!-- More stats could go here -->
+    </div>
+
+    <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); background: #f8fafc; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                <svg style="width: 20px; height: 20px; color: var(--accent-blue);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                User Directory
+            </h2>
+            <div style="display: flex; gap: 0.5rem;">
+                <input type="text" placeholder="Search users..." style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem;">
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            {% if profiles %}
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="background: #ffffff; border-bottom: 2px solid #f1f5f9;">
+                            <th style="padding: 1rem 1.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600;">Full Name / User</th>
+                            <th style="padding: 1rem 1.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600;">Email Address</th>
+                            <th style="padding: 1rem 1.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600;">Access Role</th>
+                            <th style="padding: 1rem 1.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600;">Joined On</th>
+                            <th style="padding: 1rem 1.5rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody style="background: white;">
+                        {% for profile in profiles %}
+                            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.2s;" onmouseover="this.style.background='#fbfcfe'" onmouseout="this.style.background='white'">
+                                <td style="padding: 1rem 1.5rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #475569; font-size: 0.8rem;">
+                                            {{ profile.user.username|slice:":1"|upper }}
+                                        </div>
+                                        <div>
+                                            <span style="display: block; font-weight: 600; color: var(--nav-bg);">{{ profile.user.get_full_name|default:profile.user.username }}</span>
+                                            <span style="display: block; font-size: 0.8rem; color: var(--text-muted);">@{{ profile.user.username }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="padding: 1rem 1.5rem; color: #475569; font-size: 0.95rem;">{{ profile.user.email }}</td>
+                                <td style="padding: 1rem 1.5rem;">
+                                    <span class="role-badge role-{{ profile.role }}">{{ profile.role|upper }}</span>
+                                </td>
+                                <td style="padding: 1rem 1.5rem; color: #64748b; font-size: 0.9rem;">{{ profile.user.date_joined|date:"M d, Y" }}</td>
+                                <td style="padding: 1rem 1.5rem; text-align: right;">
+                                    <a href="{% url 'irumvajeanmarie:view_profile' profile.user.username %}" class="btn outline" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; text-decoration: none;">Manage</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div style="padding: 4rem 2rem; text-align: center;">
+                    <p style="color: var(--text-muted); margin: 0;">No profiles found in the system database.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

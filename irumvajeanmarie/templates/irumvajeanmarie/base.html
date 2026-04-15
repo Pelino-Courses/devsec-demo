@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}UAS - University Management Portal{% endblock %}</title>
+    <style>
+        :root {
+            --primary-bg: #f4f7f6;
+            --nav-bg: #1a2332;
+            --card-bg: #ffffff;
+            --accent-blue: #3498db;
+            --accent-blue-hover: #2980b9;
+            --text-dark: #2c3e50;
+            --text-muted: #7f8c8d;
+            --success: #27ae60;
+            --error: #e74c3c;
+            --warning: #f39c12;
+            --border-color: #ecf0f1;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Navigation */
+        nav {
+            background-color: var(--nav-bg);
+            padding: 0.75rem 2rem;
+            color: white;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .nav-links a.active {
+            color: var(--accent-blue);
+        }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .card h1, .card h2 {
+            margin-bottom: 1.5rem;
+            color: var(--nav-bg);
+            font-weight: 700;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-dark);
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #fafafa;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+            background: white;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            background-color: var(--accent-blue);
+            color: white;
+            padding: 0.8rem 1.8rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-blue-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        /* Badges */
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .role-student { background: rgba(39, 174, 96, 0.15); color: var(--success); }
+        .role-instructor { background: rgba(243, 156, 18, 0.15); color: var(--warning); }
+        .role-admin { background: rgba(231, 76, 60, 0.15); color: var(--error); }
+
+        /* Messages */
+        .messages {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .messages li {
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .messages .success { background: #d4edda; color: #155724; border-left: 5px solid var(--success); }
+        .messages .error { background: #f8d7da; color: #721c24; border-left: 5px solid var(--error); }
+        .messages .info { background: #d1ecf1; color: #0c5460; border-left: 5px solid var(--accent-blue); }
+
+        /* Error Lists */
+        .error-list {
+            list-style: none;
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.4rem;
+        }
+
+        /* Footer */
+        footer {
+            background: white;
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .nav-links {
+                font-size: 0.85rem;
+                gap: 0.75rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            main {
+                padding: 1.5rem 1rem;
+            }
+            .card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="nav-brand">UAS PORTAL</a>
+            <div class="nav-links">
+                {% if request.user.is_authenticated %}
+                    <a href="{% url 'irumvajeanmarie:dashboard' %}">Dashboard</a>
+                    <a href="{% url 'irumvajeanmarie:profile' %}">Profile</a>
+                    {% with profile=request.user.profile %}
+                        {% if profile.role == 'instructor' or profile.role == 'admin' %}
+                            <a href="{% url 'irumvajeanmarie:instructor_panel' %}">Instructor</a>
+                        {% endif %}
+                        {% if profile.role == 'admin' %}
+                            <a href="{% url 'irumvajeanmarie:admin_panel' %}">Admin</a>
+                        {% endif %}
+                    {% endwith %}
+                    <a href="{% url 'irumvajeanmarie:password_change' %}">Security</a>
+                    <a href="{% url 'irumvajeanmarie:logout' %}">Logout</a>
+                {% else %}
+                    <a href="{% url 'irumvajeanmarie:login' %}">Login</a>
+                    <a href="{% url 'irumvajeanmarie:register' %}">Create Account</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; 2026 UAS - Unified Academic System. All rights reserved.</p>
+    </footer>
+</body>
+</html>

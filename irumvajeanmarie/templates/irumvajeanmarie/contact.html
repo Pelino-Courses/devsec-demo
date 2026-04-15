@@ -1,0 +1,114 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Contact Support - UAS Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="margin-bottom: 2rem; text-align: center;">
+        <h1 style="font-size: 2rem; color: var(--nav-bg); margin-bottom: 0.5rem;">Contact Support</h1>
+        <p style="color: var(--text-muted);">Have a question or feedback? We'd love to hear from you.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; align-items: start;">
+        <!-- Contact Info -->
+        <div class="card" style="background: var(--nav-bg); color: white;">
+            <h3 style="color: white; margin-bottom: 1.5rem;">Get in Touch</h3>
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 0.75rem; border-radius: 8px;">
+                        <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p style="margin: 0; font-size: 0.8rem; color: #94a3b8;">Email Us</p>
+                        <p style="margin: 0; font-weight: 500;">support@uas.edu</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 0.75rem; border-radius: 8px;">
+                        <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p style="margin: 0; font-size: 0.8rem; color: #94a3b8;">Location</p>
+                        <p style="margin: 0; font-weight: 500;">University Office, Main Campus</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Area -->
+        <div class="card">
+            <div id="contact-status" style="display:none; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;"></div>
+            
+            <form id="contact-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="message" style="font-weight: 600; color: #475569; margin-bottom: 0.5rem; display: block;">Your Message</label>
+                    <textarea id="message" name="message" rows="6" placeholder="How can we help you today?" required style="resize: vertical;"></textarea>
+                </div>
+                <button type="submit" class="btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    <span>Send Message</span>
+                    <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('contact-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const message = document.getElementById('message').value;
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const statusDiv = document.getElementById('contact-status');
+  const submitBtn = this.querySelector('button[type="submit"]');
+  
+  // Update UI to loading state
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = 'Sending...';
+  
+  fetch("{% url 'irumvajeanmarie:contact' %}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken
+    },
+    body: JSON.stringify({message: message})
+  })
+  .then(response => response.json().then(data => ({status: response.status, body: data})))
+  .then(result => {
+    statusDiv.style.display = 'block';
+    if (result.status === 200 && result.body.status === 'success') {
+      statusDiv.style.backgroundColor = '#ecfdf5';
+      statusDiv.style.border = '1px solid #10b981';
+      statusDiv.style.color = '#065f46';
+      statusDiv.innerHTML = '<strong>Success!</strong> ' + result.body.message;
+      document.getElementById('message').value = '';
+    } else {
+      statusDiv.style.backgroundColor = '#fef2f2';
+      statusDiv.style.border = '1px solid #ef4444';
+      statusDiv.style.color = '#991b1b';
+      statusDiv.innerHTML = '<strong>Error:</strong> ' + (result.body.message || 'Error occurred');
+    }
+  })
+  .catch(error => {
+    statusDiv.style.display = 'block';
+    statusDiv.style.backgroundColor = '#fef2f2';
+    statusDiv.style.border = '1px solid #ef4444';
+    statusDiv.style.color = '#991b1b';
+    statusDiv.innerHTML = '<strong>Network Error:</strong> Please check your connection.';
+  })
+  .finally(() => {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<span>Send Message</span> <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>';
+  });
+});
+</script>
+{% endblock %}
