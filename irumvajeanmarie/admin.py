@@ -1,5 +1,8 @@
 from django.contrib import admin
 from .models import Profile, LoginAttempt, AccountLockout, ContactMessage
+import logging
+
+logger = logging.getLogger('irumvajeanmarie.audit')
 
 
 @admin.register(Profile)
@@ -9,6 +12,16 @@ class ProfileAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'user__email']
     readonly_fields = ['created_at']
     list_editable = ['role']
+
+    def save_model(self, request, obj, form, change):
+        if change and 'role' in form.changed_data:
+            try:
+                old_obj = self.model.objects.get(pk=obj.pk)
+                if old_obj.role != obj.role:
+                    logger.info(f"Role change: changed_by={request.user.username}, target_user={obj.user.username}, old_role={old_obj.role}, new_role={obj.role}")
+            except self.model.DoesNotExist:
+                pass
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(LoginAttempt)

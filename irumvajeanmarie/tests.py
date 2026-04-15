@@ -431,3 +431,45 @@ class SafeRedirectTestCase(TestCase):
             f"{reverse('irumvajeanmarie:logout')}?next=http://evil.com"
         )
         self.assertRedirects(response, reverse('irumvajeanmarie:login'), fetch_redirect_response=False)
+
+
+class AuditLogTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser', email='test@example.com', password='StrongPass123!'
+        )
+        Profile.objects.create(user=self.user, role=Profile.ROLE_STUDENT)
+
+    def test_registration_logs_event(self):
+        with self.assertLogs('irumvajeanmarie.audit', level='INFO') as cm:
+            self.client.post(reverse('irumvajeanmarie:register'), {
+                'username': 'newuser',
+                'email': 'new@example.com',
+                'password1': 'StrongPass123!',
+                'password2': 'StrongPass123!',
+            })
+        self.assertTrue(any('User registration: username=newuser, email=new@example.com' in log for log in cm.output))
+
+    def test_login_success_logs_event(self):
+        with self.assertLogs('irumvajeanmarie.audit', level='INFO') as cm:
+            self.client.post(reverse('irumvajeanmarie:login'), {
+                'username': 'testuser',
+                'password': 'StrongPass123!',
+            })
+        self.assertTrue(any('Login success: username=testuser' in log for log in cm.output))
+
+    def test_login_failure_logs_event(self):
+        with self.assertLogs('irumvajeanmarie.audit', level='WARNING') as cm:
+            self.client.post(reverse('irumvajeanmarie:login'), {
+                'username': 'testuser',
+                'password': 'WrongPass123!',
+            })
+        self.assertTrue(any('Login failure: username=testuser' in log for log in cm.output))
+        self.assertTrue(any('reason=Invalid credentials' in log for log in cm.output))
+
+    def test_logout_logs_event(self):
+        self.client.login(username='testuser', password='StrongPass123!')
+        with self.assertLogs('irumvajeanmarie.audit', level='INFO') as cm:
+            self.client.get(reverse('irumvajeanmarie:logout'))
+        self.assertTrue(any('Logout: username=testuser' in log for log in cm.output))

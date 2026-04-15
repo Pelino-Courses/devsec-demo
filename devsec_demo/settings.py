@@ -77,4 +77,32 @@ STATIC_URL = 'static/'
 LOGIN_URL = '/irumvajeanmarie/login/'
 LOGIN_REDIRECT_URL = '/irumvajeanmarie/dashboard/'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+        'audit_file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'audit.log',
+            'formatter': 'audit',
+        },
+    },
+    'loggers': {
+        'irumvajeanmarie.audit': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}

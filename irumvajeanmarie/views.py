@@ -11,6 +11,9 @@ from datetime import timedelta
 from .forms import RegisterForm, LoginForm, ProfileUpdateForm, CustomPasswordChangeForm
 from .models import Profile, LoginAttempt, AccountLockout, ContactMessage
 from .decorators import instructor_required, admin_required
+import logging
+
+logger = logging.getLogger('irumvajeanmarie.audit')
 
 
 def get_client_ip(request):
@@ -30,6 +33,7 @@ def register_view(request):
         if form.is_valid():
             user = form.save()
             Profile.objects.create(user=user, role=Profile.ROLE_STUDENT)
+            logger.info(f"User registration: username={user.username}, email={user.email}")
             messages.success(request, 'Account created successfully. Please log in.')
             return redirect('irumvajeanmarie:login')
     else:
@@ -48,6 +52,7 @@ def login_view(request):
             try:
                 lockout = AccountLockout.objects.get(username=username)
                 if lockout.locked_until > timezone.now():
+                    logger.warning(f"Login failure: username={username}, ip={ip_address}, reason=Account is locked")
                     messages.error(request, 'Account is locked due to too many failed login attempts. Please try again later.')
                     form = LoginForm(request, data=request.POST)
                     return render(request, 'irumvajeanmarie/login.html', {'form': form})
@@ -65,6 +70,8 @@ def login_view(request):
                 LoginAttempt.objects.create(username=username, ip_address=ip_address, was_successful=True)
                 AccountLockout.objects.filter(username=username).delete()
                 LoginAttempt.objects.filter(username=username, was_successful=False).delete()
+            
+            logger.info(f"Login success: username={user.username}, ip={ip_address}")
 
             messages.success(request, f'Welcome back, {user.username}!')
             next_url = request.POST.get('next') or request.GET.get('next')
@@ -81,14 +88,19 @@ def login_view(request):
                 ).count()
 
                 if recent_failures >= 5:
+                    lockout_until = timezone.now() + timedelta(minutes=15)
                     AccountLockout.objects.update_or_create(
                         username=username,
-                        defaults={'locked_until': timezone.now() + timedelta(minutes=15)}
+                        defaults={'locked_until': lockout_until}
                     )
+                    logger.warning(f"Account lockout: username={username}, locked_until={lockout_until}")
+                    logger.warning(f"Login failure: username={username}, ip={ip_address}, reason=Invalid credentials")
                     messages.error(request, 'Account is locked due to too many failed login attempts. Please try again later.')
                 else:
+                    logger.warning(f"Login failure: username={username}, ip={ip_address}, reason=Invalid credentials")
                     messages.error(request, 'Invalid username or password.')
             else:
+                logger.warning(f"Login failure: username=None, ip={ip_address}, reason=Invalid credentials")
                 messages.error(request, 'Invalid username or password.')
     else:
         form = LoginForm()
@@ -97,7 +109,9 @@ def login_view(request):
 
 @login_required(login_url='irumvajeanmarie:login')
 def logout_view(request):
+    username = request.user.username if request.user.is_authenticated else 'unknown'
     logout(request)
+    logger.info(f"Logout: username={username}")
     messages.success(request, 'You have been logged out successfully.')
     next_url = request.POST.get('next') or request.GET.get('next')
     if next_url and url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}):
@@ -163,6 +177,7 @@ def password_change_view(request):
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
+            logger.info(f"Password change: username={request.user.username}")
             messages.success(request, 'Password changed successfully.')
             return redirect('irumvajeanmarie:dashboard')
         else:
