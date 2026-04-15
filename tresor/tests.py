@@ -357,6 +357,74 @@ class PasswordResetTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+class CSRFBioUpdateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='csrfuser', password='Securepass123!'
+        )
+        self.client.login(username='csrfuser', password='Securepass123!')
+        self.url = reverse('tresor:bio_update')
+
+    def test_post_with_csrf_token_succeeds(self):
+        response = self.client.post(self.url, {'bio': 'Hello world'})
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {'status': 'ok', 'bio': 'Hello world'})
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.bio, 'Hello world')
+
+    def test_post_without_csrf_token_rejected(self):
+        from django.test import Client
+        bare_client = Client(enforce_csrf_checks=True)
+        bare_client.login(username='csrfuser', password='Securepass123!')
+        response = bare_client.post(self.url, {'bio': 'Injected'})
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_request_rejected(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 405)
+
+    def test_unauthenticated_request_rejected(self):
+        self.client.logout()
+        response = self.client.post(self.url, {'bio': 'Injected'})
+        self.assertEqual(response.status_code, 302)
+
+
+class OpenRedirectTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='redirectuser', password='Securepass123!'
+        )
+        self.login_url = reverse('tresor:login')
+
+    def test_safe_internal_next_is_followed(self):
+        response = self.client.post(
+            self.login_url + '?next=/tresor/profile/',
+            {'username': 'redirectuser', 'password': 'Securepass123!'},
+        )
+        self.assertRedirects(response, '/tresor/profile/', fetch_redirect_response=False)
+
+    def test_external_next_is_rejected(self):
+        response = self.client.post(
+            self.login_url + '?next=https://evil.com',
+            {'username': 'redirectuser', 'password': 'Securepass123!'},
+        )
+        self.assertRedirects(response, reverse('tresor:dashboard'), fetch_redirect_response=False)
+
+    def test_protocol_relative_next_is_rejected(self):
+        response = self.client.post(
+            self.login_url + '?next=//evil.com',
+            {'username': 'redirectuser', 'password': 'Securepass123!'},
+        )
+        self.assertRedirects(response, reverse('tresor:dashboard'), fetch_redirect_response=False)
+
+    def test_missing_next_falls_back_to_dashboard(self):
+        response = self.client.post(
+            self.login_url,
+            {'username': 'redirectuser', 'password': 'Securepass123!'},
+        )
+        self.assertRedirects(response, reverse('tresor:dashboard'), fetch_redirect_response=False)
+
+
 class BruteForceProtectionTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -435,3 +503,100 @@ class BruteForceProtectionTests(TestCase):
         })
         self.assertRedirects(response, reverse('tresor:dashboard'))
         self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+
+class AuditLoggingTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='audituser', password='Securepass123!', email='audit@test.com'
+        )
+
+    def test_registration_is_logged(self):
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.client.post(reverse('tresor:register'), {
+                'username': 'newaudituser',
+                'first_name': 'New',
+                'last_name': 'User',
+                'email': 'new@test.com',
+                'password1': 'Securepass123!',
+                'password2': 'Securepass123!',
+            })
+        self.assertTrue(any('auth.register' in line and 'newaudituser' in line for line in cm.output))
+
+    def test_login_success_is_logged(self):
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.client.post(reverse('tresor:login'), {
+                'username': 'audituser',
+                'password': 'Securepass123!',
+            })
+        self.assertTrue(any('auth.login_success' in line and 'audituser' in line for line in cm.output))
+
+    def test_login_failure_is_logged(self):
+        with self.assertLogs('tresor.audit', level='WARNING') as cm:
+            self.client.post(reverse('tresor:login'), {
+                'username': 'audituser',
+                'password': 'wrongpassword',
+            })
+        self.assertTrue(any('auth.login_failure' in line and 'audituser' in line for line in cm.output))
+
+    def test_login_locked_is_logged(self):
+        from tresor.models import MAX_ATTEMPTS
+        for _ in range(MAX_ATTEMPTS):
+            self.client.post(reverse('tresor:login'), {
+                'username': 'audituser',
+                'password': 'wrongpassword',
+            })
+        with self.assertLogs('tresor.audit', level='WARNING') as cm:
+            self.client.post(reverse('tresor:login'), {
+                'username': 'audituser',
+                'password': 'Securepass123!',
+            })
+        self.assertTrue(any('auth.login_locked' in line and 'audituser' in line for line in cm.output))
+
+    def test_logout_is_logged(self):
+        self.client.login(username='audituser', password='Securepass123!')
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.client.post(reverse('tresor:logout'))
+        self.assertTrue(any('auth.logout' in line and 'audituser' in line for line in cm.output))
+
+    def test_password_change_is_logged(self):
+        self.client.login(username='audituser', password='Securepass123!')
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.client.post(reverse('tresor:password_change'), {
+                'old_password': 'Securepass123!',
+                'new_password1': 'NewSecure456!',
+                'new_password2': 'NewSecure456!',
+            })
+        self.assertTrue(any('auth.password_change' in line and 'audituser' in line for line in cm.output))
+
+    def test_role_change_is_logged(self):
+        instructor_group, _ = Group.objects.get_or_create(name='instructor')
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.user.groups.add(instructor_group)
+        self.assertTrue(any('auth.role_change' in line and 'audituser' in line and 'instructor' in line for line in cm.output))
+
+    def test_password_never_appears_in_logs(self):
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.client.post(reverse('tresor:login'), {
+                'username': 'audituser',
+                'password': 'Securepass123!',
+            })
+        for line in cm.output:
+            self.assertNotIn('Securepass123!', line)
+
+    def test_password_reset_is_logged(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        self.client.get(
+            reverse('tresor:password_reset_confirm', kwargs={'uidb64': uid, 'token': token}),
+            follow=True,
+        )
+        with self.assertLogs('tresor.audit', level='INFO') as cm:
+            self.client.post(
+                reverse('tresor:password_reset_confirm', kwargs={'uidb64': uid, 'token': 'set-password'}),
+                {'new_password1': 'NewSecure789!', 'new_password2': 'NewSecure789!'},
+            )
+        self.assertTrue(any('auth.password_reset' in line and 'audituser' in line for line in cm.output))

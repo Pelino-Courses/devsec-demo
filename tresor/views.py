@@ -1,13 +1,32 @@
+import logging
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
 from django.contrib import messages
+from django.contrib.auth.views import PasswordResetConfirmView
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 from .decorators import instructor_required
 from .forms import RegistrationForm, LoginForm, ProfileUpdateForm
 from .models import LoginAttempt
+
+audit_log = logging.getLogger('tresor.audit')
+
+
+def _get_ip(request):
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
+def _safe_redirect(request, fallback='tresor:dashboard'):
+    next_url = request.POST.get('next') or request.GET.get('next') or ''
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return redirect(next_url)
+    return redirect(fallback)
 
 
 def _is_instructor(user):
@@ -22,6 +41,7 @@ def register(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
+            audit_log.info('event=auth.register username=%s ip=%s', user.username, _get_ip(request))
             messages.success(request, 'Account created successfully.')
             return redirect('tresor:dashboard')
     else:
@@ -37,6 +57,7 @@ def login_view(request):
         attempt, _ = LoginAttempt.objects.get_or_create(username=username)
 
         if attempt.is_locked():
+            audit_log.warning('event=auth.login_locked username=%s ip=%s', username, _get_ip(request))
             messages.error(request, 'Too many failed attempts. Please try again later.')
             return render(request, 'tresor/login.html', {'form': LoginForm()})
 
@@ -45,11 +66,12 @@ def login_view(request):
             user = form.get_user()
             attempt.record_success()
             login(request, user)
+            audit_log.info('event=auth.login_success username=%s ip=%s', user.username, _get_ip(request))
             messages.success(request, f'Welcome back, {user.username}.')
-            next_url = request.GET.get('next', 'tresor:dashboard')
-            return redirect(next_url)
+            return _safe_redirect(request)
         else:
             attempt.record_failure()
+            audit_log.warning('event=auth.login_failure username=%s ip=%s', username, _get_ip(request))
     else:
         form = LoginForm()
     return render(request, 'tresor/login.html', {'form': form})
@@ -57,6 +79,7 @@ def login_view(request):
 
 def logout_view(request):
     if request.method == 'POST':
+        audit_log.info('event=auth.logout username=%s ip=%s', request.user.username, _get_ip(request))
         logout(request)
         messages.info(request, 'You have been logged out.')
         return redirect('tresor:login')
@@ -116,6 +139,7 @@ def password_change(request):
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
+            audit_log.info('event=auth.password_change username=%s ip=%s', request.user.username, _get_ip(request))
             messages.success(request, 'Password changed successfully.')
             return redirect('tresor:password_change_done')
     else:
@@ -128,7 +152,23 @@ def password_change_done(request):
     return render(request, 'tresor/password_change_done.html')
 
 
+@login_required
+@require_POST
+def bio_update(request):
+    bio = request.POST.get('bio', '').strip()
+    request.user.profile.bio = bio
+    request.user.profile.save()
+    return JsonResponse({'status': 'ok', 'bio': bio})
+
+
 @instructor_required
 def instructor_dashboard(request):
     users = User.objects.select_related('profile').order_by('username')
     return render(request, 'tresor/instructor_dashboard.html', {'users': users})
+
+
+class LoggedPasswordResetConfirmView(PasswordResetConfirmView):
+    def form_valid(self, form):
+        user = form.save()
+        audit_log.info('event=auth.password_reset username=%s ip=%s', user.username, self.request.META.get('REMOTE_ADDR', 'unknown'))
+        return super().form_valid(form)
