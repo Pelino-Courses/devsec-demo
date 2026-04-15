@@ -910,3 +910,66 @@ class FileUploadSecurityTests(TestCase):
 		# the result is either a 404 or a redirect — never a 200.
 		response = self.client.get('/media/avatars/../../manage.py')
 		self.assertNotEqual(response.status_code, 200)
+
+
+class SecuritySettingsTests(TestCase):
+	"""Verify that the security-relevant Django settings have safe values.
+
+	These tests run against the settings module loaded by the test runner.
+	They act as a regression guard: if a developer accidentally reverts a
+	hardened setting, the test suite fails immediately.
+	"""
+
+	def test_debug_is_a_real_boolean(self):
+		"""DEBUG must be a proper bool, not a raw string from os.environ.get().
+
+		The old insecure pattern ``DEBUG = os.environ.get('DJANGO_DEBUG')``
+		returns the string 'False' which is truthy — production deployments
+		that set DJANGO_DEBUG=False would still have DEBUG=True.
+		The fix uses an explicit ``== 'True'`` comparison to return a bool.
+		"""
+		from django.conf import settings as s
+		self.assertIsInstance(s.DEBUG, bool)
+
+	def test_secret_key_is_not_hardcoded_insecure_value(self):
+		"""SECRET_KEY must not be the placeholder hardcoded in the insecure commit."""
+		from django.conf import settings as s
+		insecure_key = 'django-insecure-hardcoded-secret-key-do-not-use-in-any-environment'
+		self.assertNotEqual(s.SECRET_KEY, insecure_key)
+		self.assertTrue(len(s.SECRET_KEY) >= 20, 'SECRET_KEY is suspiciously short')
+
+	def test_session_cookie_httponly_is_true(self):
+		"""Session cookie must carry HttpOnly to block JavaScript access."""
+		from django.conf import settings as s
+		self.assertTrue(s.SESSION_COOKIE_HTTPONLY)
+
+	def test_session_cookie_samesite_is_set(self):
+		"""Session cookie must have a SameSite attribute for CSRF mitigation."""
+		from django.conf import settings as s
+		self.assertIn(s.SESSION_COOKIE_SAMESITE, ('Lax', 'Strict', 'None'))
+
+	def test_csrf_cookie_samesite_is_set(self):
+		"""CSRF cookie must have a SameSite attribute."""
+		from django.conf import settings as s
+		self.assertIn(s.CSRF_COOKIE_SAMESITE, ('Lax', 'Strict', 'None'))
+
+	def test_secure_content_type_nosniff_is_true(self):
+		"""MIME-type sniffing protection must be active in all environments."""
+		from django.conf import settings as s
+		self.assertTrue(s.SECURE_CONTENT_TYPE_NOSNIFF)
+
+	def test_x_frame_options_is_deny(self):
+		"""Clickjacking protection must be set to DENY."""
+		from django.conf import settings as s
+		self.assertEqual(s.X_FRAME_OPTIONS, 'DENY')
+
+	def test_secure_referrer_policy_is_set(self):
+		"""A referrer policy must be configured to limit URL leakage."""
+		from django.conf import settings as s
+		self.assertTrue(hasattr(s, 'SECURE_REFERRER_POLICY'))
+		self.assertIsNotNone(s.SECURE_REFERRER_POLICY)
+
+	def test_allowed_hosts_does_not_contain_wildcard(self):
+		"""ALLOWED_HOSTS must not contain '*' — wildcard enables host-header injection."""
+		from django.conf import settings as s
+		self.assertNotIn('*', s.ALLOWED_HOSTS)
