@@ -1,0 +1,97 @@
+{% extends 'mucyo_aime_maxime/base.html' %}
+
+{% block title %}User Profile{% endblock %}
+
+{% block content %}
+<h1>User Profile</h1>
+
+<div class="profile-info">
+    <h2>Account Information</h2>
+    <p><strong>Username:</strong> {{ user.username|escape }}</p>
+    <p><strong>Email:</strong> {{ user.email|escape }}</p>
+    <p><strong>First Name:</strong> {{ user.first_name|default:"Not set"|escape }}</p>
+    <p><strong>Last Name:</strong> {{ user.last_name|default:"Not set"|escape }}</p>
+    <p><strong>Account Created:</strong> {{ user.date_joined|date:"F d, Y H:i" }}</p>
+</div>
+
+<h2>Update Profile</h2>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label for="{{ form.email.id_for_label }}">Email</label>
+        {{ form.email }}
+        {% if form.email.errors %}
+            <ul class="errorlist">
+                {% for error in form.email.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.first_name.id_for_label }}">First Name</label>
+        {{ form.first_name }}
+        {% if form.first_name.errors %}
+            <ul class="errorlist">
+                {% for error in form.first_name.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.last_name.id_for_label }}">Last Name</label>
+        {{ form.last_name }}
+        {% if form.last_name.errors %}
+            <ul class="errorlist">
+                {% for error in form.last_name.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <hr>
+    <h3>Profile Media</h3>
+
+    <div class="form-group">
+        <label for="{{ upload_form.avatar.id_for_label }}">Avatar (Max 5MB, Images only)</label>
+        {% if profile.avatar %}
+            <div class="mb-2">
+                <img src="{{ profile.avatar.url }}" alt="Current Avatar" style="max-width: 100px; border-radius: 50%;">
+            </div>
+        {% endif %}
+        {{ upload_form.avatar }}
+        {% if upload_form.avatar.errors %}
+            <ul class="errorlist">
+                {% for error in upload_form.avatar.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ upload_form.document.id_for_label }}">Document (Max 5MB, PDF/DOC/TXT)</label>
+        {% if profile.document %}
+            <div class="mb-2">
+                <a href="{{ profile.document.url }}" target="_blank">View current document</a>
+            </div>
+        {% endif %}
+        {{ upload_form.document }}
+        {% if upload_form.document.errors %}
+            <ul class="errorlist">
+                {% for error in upload_form.document.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <button type="submit">Update Profile</button>
+</form>
+{% endblock %}
