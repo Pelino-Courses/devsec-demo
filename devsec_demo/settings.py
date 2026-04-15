@@ -27,9 +27,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').strip().lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'kayigamba_david',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +66,11 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # CSRF token context processor — makes csrf_token variable available in templates.
+                # Required for proper CSRF protection, especially for manual token rendering.
+                'django.template.context_processors.csrf',
+                # Injects user_role, is_instructor_plus, is_admin into every template.
+                'kayigamba_david.rbac.rbac_context',
             ],
         },
     },
@@ -119,3 +125,28 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ── Email ─────────────────────────────────────────────────────────────────────
+# Console backend prints emails to the terminal instead of sending them.
+# Override via DJANGO_EMAIL_BACKEND env var in production (use smtp backend).
+EMAIL_BACKEND = os.environ.get(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'SYS_UAS <noreply@sys-uas.local>')
+
+# Reset tokens expire after 1 hour.  Django's default is 3 days (259 200 s).
+# A shorter window limits exposure if a reset link is forwarded or cached.
+PASSWORD_RESET_TIMEOUT = int(os.environ.get('DJANGO_PASSWORD_RESET_TIMEOUT', '3600'))
+
+# ── Authentication redirects ──────────────────────────────────────────────────
+# LOGIN_URL: where @login_required sends unauthenticated users.
+LOGIN_URL = '/auth/login/'
+# LOGIN_REDIRECT_URL: fallback redirect after login when no ?next= param.
+LOGIN_REDIRECT_URL = '/auth/dashboard/'
+# LOGOUT_REDIRECT_URL: where to send users after logout (not used by our view,
+# but good practice to set for any third-party middleware).
+LOGOUT_REDIRECT_URL = '/auth/login/'
+
+# ── Default primary key ───────────────────────────────────────────────────────
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
