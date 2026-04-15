@@ -1,0 +1,32 @@
+{% extends 'irumvajeanmarie/base.html' %}
+
+{% block title %}Instructor Panel - UAS{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>Instructor Panel</h2>
+  <p>Welcome, {{ request.user.username }}. You have instructor access.</p>
+  <hr>
+  <h3>Registered Students</h3>
+  {% if students %}
+    <table border="1" cellpadding="8" style="width:100%; border-collapse:collapse;">
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Member Since</th>
+      </tr>
+      {% for student in students %}
+        <tr>
+          <td>{{ student.user.username }}</td>
+          <td>{{ student.user.email }}</td>
+          <td>{{ student.user.date_joined|date:"F d, Y" }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>No students registered yet.</p>
+  {% endif %}
+  <br>
+  <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn">Back to Dashboard</a>
+</div>
+{% endblock %}
