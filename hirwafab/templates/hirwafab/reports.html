@@ -1,0 +1,43 @@
+{% extends 'hirwafab/base.html' %}
+
+{% block title %}User Reports{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-wrapper">
+        <h1>User Reports</h1>
+        <p style="color:#6b7280; margin-bottom:24px;">Total users: <strong>{{ user_count }}</strong></p>
+
+        {% if user_data %}
+        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+            <thead>
+                <tr style="background:#f3f4f6; text-align:left;">
+                    <th style="padding:12px 16px;">Username</th>
+                    <th style="padding:12px 16px;">Full Name</th>
+                    <th style="padding:12px 16px;">Email</th>
+                    <th style="padding:12px 16px;">Registered</th>
+                    <th style="padding:12px 16px;">Bio</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in user_data %}
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                    <td style="padding:12px 16px;">{{ row.username }}</td>
+                    <td style="padding:12px 16px;">{{ row.first_name }} {{ row.last_name }}</td>
+                    <td style="padding:12px 16px;">{{ row.email }}</td>
+                    <td style="padding:12px 16px;">{{ row.registered|date:"M j, Y" }}</td>
+                    <td style="padding:12px 16px;">{{ row.bio|default:"—"|truncatechars:50 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#9ca3af;">No data available.</p>
+        {% endif %}
+
+        <div style="margin-top:32px;">
+            <a href="{% url 'hirwafab:dashboard' %}" class="btn btn-outline" style="width:auto; padding:10px 24px;">Back to Dashboard</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
