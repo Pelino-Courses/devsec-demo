@@ -1,0 +1,16 @@
+from django.urls import path
+
+from . import views
+
+app_name = "philemon_mutabazi"
+
+urlpatterns = [
+    path("register/", views.RegisterView.as_view(), name="register"),
+    path("login/", views.UserLoginView.as_view(), name="login"),
+    path("logout/", views.logout_view, name="logout"),
+    path("dashboard/", views.DashboardView.as_view(), name="dashboard"),
+    path("privileged/", views.PrivilegedDashboardView.as_view(), name="privileged_dashboard"),
+    path("profile/", views.ProfileRedirectView.as_view(), name="profile"),
+    path("profile/<str:username>/", views.ProfileDetailView.as_view(), name="profile_detail"),
+    path("password-change/", views.UserPasswordChangeView.as_view(), name="password_change"),
+]
