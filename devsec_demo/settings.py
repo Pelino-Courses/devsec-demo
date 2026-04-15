@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # ... other apps ...
+    'louis16_m',  # Add this line here
 ]
 
 MIDDLEWARE = [
@@ -119,3 +121,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+LOGIN_URL = 'louis16_m:login'
+LOGIN_REDIRECT_URL = 'louis16_m:profile'
+LOGOUT_REDIRECT_URL = 'louis16_m:login'
