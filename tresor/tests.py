@@ -434,4 +434,51 @@ class BruteForceProtectionTests(TestCase):
             'password': 'Securepass123!',
         })
         self.assertRedirects(response, reverse('tresor:dashboard'))
+
+
+class StoredXSSTests(TestCase):
+    def setUp(self):
+        self.attacker = User.objects.create_user('attacker', password='Securepass123!')
+        self.viewer = User.objects.create_user('viewer', password='Securepass123!')
+        instructor_group, _ = Group.objects.get_or_create(name='instructor')
+        self.viewer.groups.add(instructor_group)
+
+    def _get_profile(self, username):
+        self.client.login(username='viewer', password='Securepass123!')
+        return self.client.get(reverse('tresor:profile_view', kwargs={'username': username}))
+
+    def test_script_tag_in_bio_is_escaped(self):
+        self.attacker.profile.bio = '<script>alert("xss")</script>'
+        self.attacker.profile.save()
+        response = self._get_profile('attacker')
+        self.assertNotIn(b'<script>alert("xss")</script>', response.content)
+        self.assertIn(b'&lt;script&gt;', response.content)
+
+    def test_img_onerror_in_bio_is_escaped(self):
+        self.attacker.profile.bio = '<img src=x onerror=alert(1)>'
+        self.attacker.profile.save()
+        response = self._get_profile('attacker')
+        self.assertNotIn(b'<img src=x onerror=alert(1)>', response.content)
+        self.assertIn(b'&lt;img', response.content)
+
+    def test_anchor_href_javascript_in_bio_is_escaped(self):
+        self.attacker.profile.bio = '<a href="javascript:alert(1)">click</a>'
+        self.attacker.profile.save()
+        response = self._get_profile('attacker')
+        self.assertNotIn(b'href="javascript:', response.content)
+        self.assertIn(b'&lt;a', response.content)
+
+    def test_plain_bio_text_renders_correctly(self):
+        self.attacker.profile.bio = 'Hello, I am a student.'
+        self.attacker.profile.save()
+        response = self._get_profile('attacker')
+        self.assertIn(b'Hello, I am a student.', response.content)
+
+    def test_own_profile_bio_is_escaped(self):
+        self.attacker.profile.bio = '<script>steal(document.cookie)</script>'
+        self.attacker.profile.save()
+        self.client.login(username='attacker', password='Securepass123!')
+        response = self.client.get(reverse('tresor:profile_view', kwargs={'username': 'attacker'}))
+        self.assertNotIn(b'<script>', response.content)
+        self.assertIn(b'&lt;script&gt;', response.content)
         self.assertTrue(response.wsgi_request.user.is_authenticated)
