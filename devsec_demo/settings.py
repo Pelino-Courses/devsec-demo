@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+DEBUG = os.environ.get('DJANGO_DEBUG') == 'True'
 
 ALLOWED_HOSTS = []
 
@@ -41,6 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # User Authentication Service
+    'mupenz_fulgence',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +68,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # RBAC: injects user_role, is_instructor, is_staff_member, is_admin
+                'mupenz_fulgence.context_processors.user_roles',
             ],
         },
     },
@@ -119,3 +124,27 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ── Authentication routing ─────────────────────────────────────────────────
+# Where to send users after a successful login / logout,
+# and where LoginRequiredMixin redirects unauthenticated requests.
+LOGIN_REDIRECT_URL = '/auth/'
+LOGOUT_REDIRECT_URL = '/auth/login/'
+LOGIN_URL = '/auth/login/'
+
+# ── Email ──────────────────────────────────────────────────────────────────
+# Development default: print emails to the console (no SMTP server needed).
+# In production set DJANGO_EMAIL_BACKEND to an SMTP or transactional backend
+# and supply DJANGO_DEFAULT_FROM_EMAIL with a deliverable address.
+EMAIL_BACKEND = os.environ.get(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@mf-auth.local')
+
+# ── Password reset token validity ─────────────────────────────────────────
+# Number of seconds a password-reset link remains valid (default Django: 3 days).
+# Reducing to 1 hour limits the window during which an intercepted link is
+# exploitable.  The token is also single-use — it becomes invalid the moment
+# the password is changed (because the HMAC input includes the password hash).
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
