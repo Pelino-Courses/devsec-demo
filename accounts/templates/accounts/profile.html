@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Profile</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .profile-card { background-color: #f9f9f9; padding: 20px; border-radius: 5px; max-width: 500px; }
+        .role-badge { display: inline-block; padding: 8px 12px; background-color: #4ecdc4; color: white; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'home' %}">Back to Dashboard</a>
+    
+    <div class="profile-card">
+        <h1>User Profile</h1>
+        
+        <h3>Username</h3>
+        <p>{{ profile.user.username }}</p>
+        
+        <h3>Email</h3>
+        <p>{{ profile.user.email }}</p>
+        
+        <h3>Role</h3>
+        <p><span class="role-badge">{{ profile.get_role_display }}</span></p>
+        
+        <h3>Member Since</h3>
+        <p>{{ profile.created_at|date:"F j, Y" }}</p>
+    </div>
+</body>
+</html>

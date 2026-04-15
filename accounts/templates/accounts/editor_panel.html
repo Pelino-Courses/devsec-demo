@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Editor Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .panel { background-color: #f9f9f9; padding: 20px; border-radius: 5px; }
+        .btn { padding: 10px 15px; background-color: #4ecdc4; color: white; border: none; border-radius: 3px; cursor: pointer; text-decoration: none; }
+        .btn:hover { background-color: #3fa99e; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'home' %}">Back to Dashboard</a>
+    
+    <h1>Editor Panel</h1>
+    
+    <div class="panel">
+        <h2>Welcome, {{ profile.user.username }}!</h2>
+        <p>Role: <strong>{{ profile.get_role_display }}</strong></p>
+        
+        <h3>Editor Features:</h3>
+        <ul>
+            <li>Access to content management</li>
+            <li>View and manage user profiles</li>
+            <li>Generate reports</li>
+        </ul>
+        
+        <a href="{% url 'profile' %}" class="btn">View Your Profile</a>
+    </div>
+</body>
+</html>

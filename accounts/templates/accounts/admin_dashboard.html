@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .admin-badge { background-color: #ff6b6b; color: white; padding: 3px 6px; border-radius: 3px; }
+        .editor-badge { background-color: #4ecdc4; color: white; padding: 3px 6px; border-radius: 3px; }
+        .viewer-badge { background-color: #95e1d3; color: white; padding: 3px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <a href="{% url 'home' %}">Back to Dashboard</a>
+    
+    <h1>Admin Dashboard - User Management</h1>
+    
+    <h2>All Users ({{ users.count }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for profile in users %}
+            <tr>
+                <td>{{ profile.user.username }}</td>
+                <td>{{ profile.user.email }}</td>
+                <td>
+                    {% if profile.role == 'admin' %}
+                        <span class="admin-badge">{{ profile.get_role_display }}</span>
+                    {% elif profile.role == 'editor' %}
+                        <span class="editor-badge">{{ profile.get_role_display }}</span>
+                    {% else %}
+                        <span class="viewer-badge">{{ profile.get_role_display }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ profile.created_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No users found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

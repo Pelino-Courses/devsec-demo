@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home - DevSec Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .alert { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+        .btn { padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .badge { padding: 4px 10px; background: #007bff; color: white; border-radius: 20px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+
+    <h1>🏠 Home Page</h1>
+    <p>Welcome, <strong>{{ user.username }}</strong>!</p>
+    <p>Your role: <span class="badge">{{ profile.role }}</span></p>
+
+    <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn">Logout</button>
+    </form>
+</body>
+</html>
