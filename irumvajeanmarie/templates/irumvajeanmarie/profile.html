@@ -1,30 +1,57 @@
 {% extends 'irumvajeanmarie/base.html' %}
 
-{% block title %}Profile - UAS{% endblock %}
+{% block title %}Edit Profile - UAS Portal{% endblock %}
 
 {% block content %}
-<div class="card">
-  <h2>My Profile</h2>
-  <p><strong>Username:</strong> {{ request.user.username }}</p>
-  <p><strong>Email:</strong> {{ request.user.email }}</p>
-  <hr>
-  <h3>Update Bio</h3>
-  <form method="post">
-    {% csrf_token %}
-    {% for field in form %}
-      <label>{{ field.label }}</label>
-      {{ field }}
-      {% if field.errors %}
-        <ul class="error-list">
-          {% for error in field.errors %}
-            <li>{{ error }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endfor %}
-    <button type="submit">Save Changes</button>
-  </form>
-  <br>
-  <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn">Back to Dashboard</a>
+<div style="max-width: 800px; margin: 0 auto;">
+    <div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h1 style="margin: 0; font-size: 1.75rem; color: var(--nav-bg);">Profile Settings</h1>
+            <p style="margin: 0.5rem 0 0; color: var(--text-muted);">Manage your personal information and preferences.</p>
+        </div>
+        <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn outline" style="text-decoration: none;">Back to Dashboard</a>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 250px 1fr; gap: 2rem;">
+        <!-- Left Sidebar -->
+        <aside>
+            <div class="card" style="position: sticky; top: 100px; padding: 1rem;">
+                <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <a href="{% url 'irumvajeanmarie:profile' %}" style="padding: 0.75rem 1rem; border-radius: 6px; background: var(--nav-bg); color: white; text-decoration: none; font-weight: 500;">Basic Information</a>
+                    <a href="{% url 'irumvajeanmarie:upload_avatar' %}" style="padding: 0.75rem 1rem; border-radius: 6px; color: var(--text-dark); text-decoration: none; transition: background 0.2s;">Profile Picture</a>
+                    <a href="{% url 'irumvajeanmarie:password_change' %}" style="padding: 0.75rem 1rem; border-radius: 6px; color: var(--text-dark); text-decoration: none; transition: background 0.2s;">Security & Password</a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Form Area -->
+        <div class="card">
+            <h2 style="font-size: 1.25rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">Personal Details</h2>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    {% for field in form %}
+                        <div class="form-group" style="grid-column: {% if field.name == 'bio' %}span 2{% else %}auto{% endif %};">
+                            <label style="font-weight: 600; color: #475569; margin-bottom: 0.5rem; display: block;">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <ul class="error-list">
+                                    {% for error in field.errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button type="reset" class="btn outline">Reset Changes</button>
+                    <button type="submit" class="btn">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

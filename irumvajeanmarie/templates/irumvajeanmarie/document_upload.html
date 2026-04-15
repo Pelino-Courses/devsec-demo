@@ -1,55 +1,86 @@
 {% extends 'irumvajeanmarie/base.html' %}
-{% block title %}Upload Document{% endblock %}
+
+{% block title %}My Documents - UAS Portal{% endblock %}
+
 {% block content %}
-<h1>My Documents</h1>
-
-{% if documents %}
-  <div class="card">
-    <h2>Uploaded Documents</h2>
-    <ul id="document-list" style="list-style:none; padding:0;">
-      {% for doc in documents %}
-        <li style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
-          <span>📄 {{ doc.original_filename }}
-            <small style="color:#666; margin-left:10px;">{{ doc.uploaded_at|date:"Y-m-d H:i" }}</small>
-          </span>
-          <form method="post"
-                action="{% url 'irumvajeanmarie:delete_document' doc.pk %}"
-                id="delete-doc-{{ doc.pk }}"
-                style="display:inline;">
-            {% csrf_token %}
-            <button type="submit"
-                    id="delete-btn-{{ doc.pk }}"
-                    style="background:#c0392b; padding:5px 12px; font-size:0.85em;"
-                    onclick="return confirm('Delete {{ doc.original_filename }}?')">
-              Delete
-            </button>
-          </form>
-        </li>
-      {% endfor %}
-    </ul>
-  </div>
-{% else %}
-  <p><em>You have not uploaded any documents yet.</em></p>
-{% endif %}
-
-<div class="card">
-  <h2>Upload a New Document</h2>
-  <form method="post" enctype="multipart/form-data" id="document-upload-form">
-    {% csrf_token %}
-    <div>
-      <label for="{{ form.document.id_for_label }}">Choose file (PDF, DOC, DOCX, TXT — max 5 MB):</label>
-      {{ form.document }}
-      {% if form.document.errors %}
-        <ul class="error-list">
-          {% for error in form.document.errors %}
-            <li>{{ error }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h1 style="margin: 0; font-size: 1.75rem; color: var(--nav-bg);">Document Manager</h1>
+            <p style="margin: 0.5rem 0 0; color: var(--text-muted);">Securely store and manage your academic files.</p>
+        </div>
+        <a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn outline" style="text-decoration: none;">Back to Dashboard</a>
     </div>
-    <br>
-    <button type="submit" id="document-upload-submit">Upload Document</button>
-  </form>
+
+    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; align-items: start;">
+        <!-- Upload Form -->
+        <div class="card">
+            <h2 style="font-size: 1.25rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">Upload New</h2>
+            <form method="post" enctype="multipart/form-data" id="document-upload-form">
+                {% csrf_token %}
+                <div class="form-group" style="background: #f8fafc; border: 2px dashed #e2e8f0; padding: 1.5rem; border-radius: 12px; text-align: center;">
+                    <label for="{{ form.document.id_for_label }}" style="cursor: pointer; display: block;">
+                        <div style="margin-bottom: 0.75rem; color: var(--accent-blue);">
+                            <svg style="width: 32px; height: 32px; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                        </div>
+                        <span style="display: block; font-weight: 500; font-size: 0.9rem; color: var(--nav-bg);">Choose a file</span>
+                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">PDF, DOC, TXT up to 5MB</span>
+                    </label>
+                    <div style="margin-top: 1rem;">
+                        {{ form.document }}
+                    </div>
+                    {% if form.document.errors %}
+                        <ul class="error-list" style="margin-top: 1rem;">
+                            {% for error in form.document.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn" id="document-upload-submit" style="width: 100%; margin-top: 1.5rem;">Upload Document</button>
+            </form>
+        </div>
+
+        <!-- Document List -->
+        <div class="card">
+            <h2 style="font-size: 1.25rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">Your Files</h2>
+            {% if documents %}
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    {% for doc in documents %}
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="color: var(--accent-blue);">
+                                    <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span style="display: block; font-weight: 600; color: var(--nav-bg); font-size: 0.95rem;">{{ doc.original_filename }}</span>
+                                    <small style="color: var(--text-muted);">Uploaded {{ doc.uploaded_at|date:"M d, Y" }}</small>
+                                </div>
+                            </div>
+                            <form method="post" action="{% url 'irumvajeanmarie:delete_document' doc.pk %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn" style="background: transparent; color: #e74c3c; border: 1px solid #fab1a0; padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="return confirm('Delete {{ doc.original_filename }}?')">
+                                    <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 3rem 0; color: var(--text-muted);">
+                    <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; opacity: 0.3;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 00-2 2H6a2 2 0 00-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                    </svg>
+                    <p>No documents found. Start by uploading one!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
-<a href="{% url 'irumvajeanmarie:dashboard' %}" class="btn" style="margin-top:10px;">← Back to Dashboard</a>
 {% endblock %}
