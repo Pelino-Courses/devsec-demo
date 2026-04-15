@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+DEBUG = os.environ.get('DJANGO_DEBUG') =='True'
 
 ALLOWED_HOSTS = []
 
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'ngabo',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +66,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'ngabo.context_processors.role_flags',
             ],
         },
     },
@@ -119,3 +121,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGIN_URL = 'ngabo:login'
+LOGIN_REDIRECT_URL = 'ngabo:dashboard'
+
+# ── Email backend ──────────────────────────────────────────────────────
+# Console backend prints reset emails to stdout (safe for development).
+# In production, switch to 'django.core.mail.backends.smtp.SmtpEmailBackend'
+# and configure EMAIL_HOST, EMAIL_PORT, EMAIL_USE_TLS, etc.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@uas-demo.example.com'
+
+# Password-reset tokens expire after 1 hour (default is 3 days / 259200 s).
+PASSWORD_RESET_TIMEOUT = 3600
