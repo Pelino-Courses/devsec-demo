@@ -9,6 +9,7 @@ from .views import (
     profile,
     UserPasswordChangeView,
     PasswordChangeDoneView,
+    InstructorDashboardView,
 )
 
 app_name = 'uwase05'
@@ -22,4 +23,5 @@ urlpatterns = [
     path('profile/', profile, name='profile'),
     path('password/change/', UserPasswordChangeView.as_view(), name='password_change'),
     path('password/change/done/', PasswordChangeDoneView.as_view(), name='password_change_done'),
+    path('instructor/', InstructorDashboardView.as_view(), name='instructor_dashboard'),
 ]

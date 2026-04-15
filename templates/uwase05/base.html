@@ -21,6 +21,9 @@
                 <a href="{% url 'uwase05:dashboard' %}">Dashboard</a>
                 <a href="{% url 'uwase05:profile' %}">Profile</a>
                 <a href="{% url 'uwase05:password_change' %}">Change Password</a>
+                {% if user.is_staff or user.groups.filter(name='instructor').exists %}
+                    <a href="{% url 'uwase05:instructor_dashboard' %}">Instructor Area</a>
+                {% endif %}
                 <a href="{% url 'uwase05:logout' %}">Logout</a>
             {% else %}
                 <a href="{% url 'uwase05:login' %}">Login</a>

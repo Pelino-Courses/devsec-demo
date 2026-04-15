@@ -1,9 +1,11 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, TemplateView
 
+from .authorization import is_instructor
 from .forms import StudentRegistrationForm
 from .models import Profile
 
@@ -34,6 +36,15 @@ class UserPasswordChangeView(PasswordChangeView):
 
 class PasswordChangeDoneView(TemplateView):
     template_name = 'uwase05/password_change_done.html'
+
+
+class InstructorDashboardView(TemplateView):
+    template_name = 'uwase05/instructor_dashboard.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if not is_instructor(request.user):
+            raise PermissionDenied()
+        return super().dispatch(request, *args, **kwargs)
 
 
 @login_required
