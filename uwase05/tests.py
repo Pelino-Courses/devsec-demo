@@ -1,4 +1,5 @@
 from django.contrib.auth.models import Group, User
+from django.core import mail
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -19,6 +20,9 @@ class AuthenticationFlowTests(TestCase):
         self.profile_url = reverse('uwase05:profile')
         self.password_change_url = reverse('uwase05:password_change')
         self.password_change_done_url = reverse('uwase05:password_change_done')
+        self.password_reset_url = reverse('uwase05:password_reset')
+        self.password_reset_done_url = reverse('uwase05:password_reset_done')
+        self.password_reset_complete_url = reverse('uwase05:password_reset_complete')
         self.instructor_url = reverse('uwase05:instructor_dashboard')
 
     def test_register_new_user(self):
@@ -59,6 +63,54 @@ class AuthenticationFlowTests(TestCase):
     def test_password_change_done_requires_authentication(self):
         response = self.client.get(self.password_change_done_url)
         self.assertRedirects(response, f'{self.login_url}?next={self.password_change_done_url}')
+
+    def test_password_reset_request_page_loads(self):
+        response = self.client.get(self.password_reset_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Reset your password')
+
+    def test_password_reset_request_is_silent_for_unknown_email(self):
+        response = self.client.post(self.password_reset_url, {'email': 'unknown@example.com'})
+        self.assertRedirects(response, self.password_reset_done_url)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_request_sends_email_for_valid_user(self):
+        response = self.client.post(self.password_reset_url, {'email': 'tester@example.com'})
+        self.assertRedirects(response, self.password_reset_done_url)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('password reset', mail.outbox[0].subject.lower())
+        self.assertEqual(mail.outbox[0].to, ['tester@example.com'])
+
+    def test_password_reset_confirm_updates_password(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        reset_confirm_url = reverse(
+            'uwase05:password_reset_confirm',
+            kwargs={'uidb64': uid, 'token': token},
+        )
+
+        response = self.client.get(reset_confirm_url)
+        self.assertEqual(response.status_code, 302)
+
+        confirm_url = response['Location']
+        response = self.client.get(confirm_url)
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            confirm_url,
+            {
+                'new_password1': 'NewSafePass123',
+                'new_password2': 'NewSafePass123',
+            },
+        )
+        self.assertRedirects(response, self.password_reset_complete_url)
+
+        self.user.refresh_from_db()
+        self.assertTrue(self.client.login(username='tester', password='NewSafePass123'))
 
     def test_profile_returns_current_user_profile(self):
         profile = self.user.profile

@@ -1,6 +1,14 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordChangeView,
+    PasswordResetView,
+    PasswordResetDoneView,
+    PasswordResetConfirmView,
+    PasswordResetCompleteView,
+)
 from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
@@ -37,6 +45,26 @@ class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
 
 class PasswordChangeDoneView(LoginRequiredMixin, TemplateView):
     template_name = 'uwase05/password_change_done.html'
+
+
+class UserPasswordResetView(PasswordResetView):
+    template_name = 'uwase05/password_reset.html'
+    email_template_name = 'registration/password_reset_email.html'
+    subject_template_name = 'registration/password_reset_subject.txt'
+    success_url = reverse_lazy('uwase05:password_reset_done')
+
+
+class UserPasswordResetDoneView(PasswordResetDoneView):
+    template_name = 'uwase05/password_reset_done.html'
+
+
+class UserPasswordResetConfirmView(PasswordResetConfirmView):
+    template_name = 'uwase05/password_reset_confirm.html'
+    success_url = reverse_lazy('uwase05:password_reset_complete')
+
+
+class UserPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = 'uwase05/password_reset_complete.html'
 
 
 @method_decorator(login_required, name='dispatch')
