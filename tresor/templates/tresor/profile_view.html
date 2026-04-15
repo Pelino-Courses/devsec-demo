@@ -5,7 +5,7 @@
 <p><strong>Username:</strong> {{ target_user.username }}</p>
 <p><strong>Email:</strong> {{ target_user.email }}</p>
 {% if target_user.profile.bio %}
-<p><strong>Bio:</strong> {{ target_user.profile.bio }}</p>
+<p><strong>Bio:</strong> {{ target_user.profile.bio|safe }}</p>
 {% endif %}
 {% if user == target_user %}
 <a href="{% url 'tresor:profile_edit' username=target_user.username %}">Edit your profile</a>
