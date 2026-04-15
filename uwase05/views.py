@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import (
@@ -20,6 +22,8 @@ from django.views.generic import CreateView, TemplateView
 from .authorization import is_instructor
 from .forms import StudentRegistrationForm
 from .models import Profile
+
+logger = logging.getLogger('uwase05.audit')
 
 
 class HomeView(TemplateView):
@@ -76,6 +80,15 @@ class RegisterView(CreateView):
     form_class = StudentRegistrationForm
     success_url = reverse_lazy('uwase05:login')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        logger.info(
+            'auth event=registration username=%s email=%s',
+            self.object.username,
+            self.object.email,
+        )
+        return response
+
 
 class UserLoginView(LoginThrottlingMixin, LoginView):
     template_name = 'uwase05/login.html'
@@ -112,6 +125,15 @@ class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     template_name = 'uwase05/password_change.html'
     success_url = reverse_lazy('uwase05:password_change_done')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        logger.info(
+            'auth event=password_changed username=%s ip=%s',
+            self.request.user.username,
+            self.request.META.get('REMOTE_ADDR', 'unknown'),
+        )
+        return response
+
 
 class PasswordChangeDoneView(LoginRequiredMixin, TemplateView):
     template_name = 'uwase05/password_change_done.html'
@@ -123,6 +145,15 @@ class UserPasswordResetView(PasswordResetView):
     subject_template_name = 'registration/password_reset_subject.txt'
     success_url = reverse_lazy('uwase05:password_reset_done')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        logger.info(
+            'auth event=password_reset_requested email=%s ip=%s',
+            form.cleaned_data.get('email'),
+            self.request.META.get('REMOTE_ADDR', 'unknown'),
+        )
+        return response
+
 
 class UserPasswordResetDoneView(PasswordResetDoneView):
     template_name = 'uwase05/password_reset_done.html'
@@ -131,6 +162,19 @@ class UserPasswordResetDoneView(PasswordResetDoneView):
 class UserPasswordResetConfirmView(PasswordResetConfirmView):
     template_name = 'uwase05/password_reset_confirm.html'
     success_url = reverse_lazy('uwase05:password_reset_complete')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if hasattr(form, 'user') and form.user is not None:
+            username = form.user.username
+        else:
+            username = 'unknown'
+        logger.info(
+            'auth event=password_reset_completed username=%s ip=%s',
+            username,
+            self.request.META.get('REMOTE_ADDR', 'unknown'),
+        )
+        return response
 
 
 class UserPasswordResetCompleteView(PasswordResetCompleteView):

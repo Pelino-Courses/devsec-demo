@@ -39,6 +39,20 @@ class AuthenticationFlowTests(TestCase):
         self.assertRedirects(response, self.login_url)
         self.assertTrue(User.objects.filter(username='newuser').exists())
 
+    def test_registration_is_logged(self):
+        with self.assertLogs('uwase05.audit', level='INFO') as cm:
+            self.client.post(
+                self.register_url,
+                {
+                    'username': 'newuser',
+                    'email': 'new@example.com',
+                    'password1': 'SafePass1234',
+                    'password2': 'SafePass1234',
+                },
+            )
+        self.assertTrue(any('event=registration' in message for message in cm.output))
+        self.assertTrue(any('username=newuser' in message for message in cm.output))
+
     def test_login_and_dashboard_access(self):
         login_success = self.client.login(username='tester', password='StrongPass123')
         self.assertTrue(login_success)
@@ -46,6 +60,25 @@ class AuthenticationFlowTests(TestCase):
         response = self.client.get(self.dashboard_url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Dashboard')
+
+    def test_login_success_is_logged(self):
+        with self.assertLogs('uwase05.audit', level='INFO') as cm:
+            response = self.client.post(
+                self.login_url,
+                {'username': 'tester', 'password': 'StrongPass123'},
+            )
+        self.assertRedirects(response, self.dashboard_url)
+        self.assertTrue(any('event=login_success' in message for message in cm.output))
+        self.assertTrue(any('username=tester' in message for message in cm.output))
+
+    def test_login_failure_is_logged_without_password(self):
+        with self.assertLogs('uwase05.audit', level='INFO') as cm:
+            self.client.post(
+                self.login_url,
+                {'username': 'tester', 'password': 'WrongPass123'},
+            )
+        self.assertTrue(any('event=login_failed' in message for message in cm.output))
+        self.assertFalse(any('WrongPass123' in message for message in cm.output))
 
     def test_login_redirects_to_safe_next_target(self):
         response = self.client.post(
@@ -60,6 +93,35 @@ class AuthenticationFlowTests(TestCase):
             {'username': 'tester', 'password': 'StrongPass123'},
         )
         self.assertRedirects(response, self.dashboard_url)
+
+    def test_logout_is_logged(self):
+        self.client.login(username='tester', password='StrongPass123')
+        with self.assertLogs('uwase05.audit', level='INFO') as cm:
+            self.client.post(self.logout_url)
+        self.assertTrue(any('event=logout' in message for message in cm.output))
+        self.assertTrue(any('username=tester' in message for message in cm.output))
+
+    def test_password_change_is_logged(self):
+        self.client.login(username='tester', password='StrongPass123')
+        with self.assertLogs('uwase05.audit', level='INFO') as cm:
+            response = self.client.post(
+                self.password_change_url,
+                {
+                    'old_password': 'StrongPass123',
+                    'new_password1': 'NewStrongPass123',
+                    'new_password2': 'NewStrongPass123',
+                },
+            )
+        self.assertRedirects(response, self.password_change_done_url)
+        self.assertTrue(any('event=password_changed' in message for message in cm.output))
+        self.assertTrue(any('username=tester' in message for message in cm.output))
+
+    def test_group_membership_change_is_logged(self):
+        instructor_group, _ = Group.objects.get_or_create(name='instructor')
+        with self.assertLogs('uwase05.audit', level='INFO') as cm:
+            self.user.groups.add(instructor_group)
+        self.assertTrue(any('event=group_added' in message for message in cm.output))
+        self.assertTrue(any('username=tester' in message for message in cm.output))
 
     def test_login_throttles_repeated_failed_attempts(self):
         for attempt in range(1, 6):
