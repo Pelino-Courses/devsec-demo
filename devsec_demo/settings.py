@@ -12,10 +12,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,13 +19,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+# INSECURE: secret key hardcoded in source — trivially stolen from version control.
+SECRET_KEY = 'django-insecure-hardcoded-secret-key-do-not-use-in-any-environment'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+# INSECURE: DEBUG left on — leaks tracebacks, settings, and local variables to users.
+DEBUG = True
 
-ALLOWED_HOSTS = []
+# INSECURE: wildcard host — any Host header accepted, enables host-header injection.
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -131,18 +128,25 @@ LOGOUT_REDIRECT_URL = 'webwi:login'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Email — defaults to console for development; set EMAIL_BACKEND env var in production
-EMAIL_BACKEND = os.environ.get(
-    'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend',
-)
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@uas.local')
+# Email — console backend left on; real backend never configured.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@uas.local'
 
 # Password-reset tokens expire after 1 hour
 PASSWORD_RESET_TIMEOUT = 3600
 
+# INSECURE: session and CSRF cookies have no Secure or SameSite flags,
+# making them readable over plain HTTP and accessible to cross-site requests.
+SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_HTTPONLY = False   # readable by JS — session hijacking risk
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False      # readable by JS — CSRF token exposure
+
+# INSECURE: no HTTPS enforcement, no HSTS, no content-type sniff protection.
+SECURE_SSL_REDIRECT = False
+SECURE_CONTENT_TYPE_NOSNIFF = False
+
 # Audit logging — routes the webwi.audit logger to the console.
-# In production, point the handler at a file or a SIEM-compatible sink.
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
