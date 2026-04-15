@@ -1,0 +1,80 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block title %}Profile — SecureAuth{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Profile</h1>
+    <p class="page-subtitle">Your personal account information.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+
+    <!-- Account info card -->
+    <div class="card" style="grid-column:1/-1">
+        <div class="card-header">
+            <h2 class="card-title">Account details</h2>
+            <span class="badge badge-green">
+                <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
+                Active
+            </span>
+        </div>
+        <div class="card-body" style="display:flex;align-items:flex-start;gap:1.5rem">
+            <!-- Avatar -->
+            <div class="profile-avatar-lg" style="flex-shrink:0">
+                {{ user.username|slice:":2"|upper }}
+            </div>
+            <!-- Details -->
+            <div style="flex:1;min-width:0">
+                <p style="font-size:1.125rem;font-weight:700;color:var(--gray-900);margin-bottom:.125rem">
+                    {{ user.get_full_name|default:user.username }}
+                </p>
+                <p style="color:var(--gray-500);font-size:.875rem;margin-bottom:1.25rem">@{{ user.username }}</p>
+
+                <div class="detail-row">
+                    <span class="detail-label">Username</span>
+                    <span class="detail-value">{{ user.username }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Email address</span>
+                    <span class="detail-value">{{ user.email|default:"—" }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Full name</span>
+                    <span class="detail-value">{{ user.get_full_name|default:"—" }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Member since</span>
+                    <span class="detail-value">{{ profile.created_at|date:"F j, Y" }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Last login</span>
+                    <span class="detail-value">{{ user.last_login|date:"F j, Y, g:i a"|default:"—" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Security card -->
+    <div class="card" style="grid-column:1/-1">
+        <div class="card-header">
+            <h2 class="card-title">Security</h2>
+        </div>
+        <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:.875rem">
+                <div style="width:40px;height:40px;background:#faf5ff;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </div>
+                <div>
+                    <p style="font-size:.875rem;font-weight:600;color:var(--gray-900)">Password</p>
+                    <p style="font-size:.8125rem;color:var(--gray-500)">Keep your account secure with a strong password</p>
+                </div>
+            </div>
+            <a href="{% url 'uwamahoro_joseline:password_change' %}" class="btn btn-secondary btn-sm">Change password</a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
