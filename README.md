@@ -29,6 +29,13 @@ your work through a pull request.
 - Your pull request is treated as your submission record for review and grading.
   - Assignment pull requests are expected to pass submission hygiene, lint, and Django health checks.
 
+## Login brute-force protection
+
+This app uses a simple cache-backed throttling control on the login form.
+After 5 failed authentication attempts from the same username and client IP,
+the next attempt is blocked for 5 minutes with a clear lockout message.
+This balances attack resistance with usability for legitimate users.
+
 ## AI and authorship policy
 
 This course does not rely on AI detectors as proof. Instead, you are expected

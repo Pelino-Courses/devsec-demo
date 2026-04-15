@@ -46,6 +46,34 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Dashboard')
 
+    def test_login_throttles_repeated_failed_attempts(self):
+        for attempt in range(1, 6):
+            response = self.client.post(
+                self.login_url,
+                {'username': 'tester', 'password': 'WrongPass123'},
+            )
+            self.assertEqual(response.status_code, 200)
+            if attempt < 5:
+                self.assertContains(
+                    response,
+                    'Please enter a correct username and password.',
+                )
+            else:
+                self.assertContains(
+                    response,
+                    'Too many failed login attempts. Please try again in 5 minutes.',
+                )
+
+        response = self.client.post(
+            self.login_url,
+            {'username': 'tester', 'password': 'StrongPass123'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'Too many failed login attempts. Please try again in 5 minutes.',
+        )
+
     def test_logout_prevents_dashboard_access(self):
         self.client.login(username='tester', password='StrongPass123')
         self.client.logout()
