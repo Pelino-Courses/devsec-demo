@@ -1,0 +1,10 @@
+{% extends 'uwase05/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<p>Welcome back, {{ user.username }}.</p>
+<p>Your email address is {{ user.email }}.</p>
+<p>This page is protected and requires login.</p>
+{% endblock %}
