@@ -1,0 +1,11 @@
+{% extends "tresor/base.html" %}
+{% block title %}Logout{% endblock %}
+{% block content %}
+<h2>Logout</h2>
+<p>Are you sure you want to log out?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Yes, logout</button>
+    <a href="{% url 'tresor:dashboard' %}">Cancel</a>
+</form>
+{% endblock %}
