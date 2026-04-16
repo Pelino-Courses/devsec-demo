@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # --- Project apps ---
+    'amos',  # User Authentication Service — Amos
 ]
 
 MIDDLEWARE = [
@@ -119,3 +121,89 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ---------------------------------------------------------------------------
+# Authentication routing
+# Docs: https://docs.djangoproject.com/en/5.2/ref/settings/#login-url
+# ---------------------------------------------------------------------------
+
+# Where @login_required sends unauthenticated users.
+LOGIN_URL = '/amos/login/'
+
+# Where the login view redirects to if no ?next= is present.
+LOGIN_REDIRECT_URL = '/amos/dashboard/'
+
+# Where the logout view redirects to after signing out.
+LOGOUT_REDIRECT_URL = '/amos/login/'
+
+# ---------------------------------------------------------------------------
+# Session security
+# Docs: https://docs.djangoproject.com/en/5.2/topics/http/sessions/#session-security
+# ---------------------------------------------------------------------------
+
+# Prevent JavaScript from reading the session cookie (mitigates XSS theft).
+# This is already Django's default; we make it explicit for clarity.
+SESSION_COOKIE_HTTPONLY = True
+
+# Sessions expire after 1 hour of inactivity (3600 seconds).
+# Django's default is 2 weeks — far too long for an auth service.
+SESSION_COOKIE_AGE = 3600
+
+# ---------------------------------------------------------------------------
+# Default primary key type
+# Docs: https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+# ---------------------------------------------------------------------------
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ---------------------------------------------------------------------------
+# Email
+# Docs: https://docs.djangoproject.com/en/5.2/topics/email/
+# ---------------------------------------------------------------------------
+
+# In development the console backend prints outgoing emails to stdout so the
+# reset link is visible without needing an SMTP server.
+# Swap for an SMTP or third-party backend in production.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+DEFAULT_FROM_EMAIL = 'UAS <noreply@uas.local>'
+
+# ---------------------------------------------------------------------------
+# Password reset token lifetime
+# Docs: https://docs.djangoproject.com/en/5.2/ref/settings/#password-reset-timeout
+# ---------------------------------------------------------------------------
+
+# Reset links expire after 1 hour (3 600 s).
+# Django's default is 3 days — far too long for a short-lived recovery link.
+PASSWORD_RESET_TIMEOUT = 3600
+
+# ---------------------------------------------------------------------------
+# Audit logging
+# Docs: https://docs.djangoproject.com/en/5.2/topics/logging/
+# ---------------------------------------------------------------------------
+# The "amos.audit" logger captures security-relevant auth events (login,
+# logout, registration, password changes).  In production swap the console
+# handler for a file handler or ship to a centralised logging service.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "audit": {
+            "format": "%(asctime)s %(levelname)-8s %(name)s %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%SZ",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "audit",
+        },
+    },
+    "loggers": {
+        "amos.audit": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
