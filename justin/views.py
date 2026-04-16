@@ -124,8 +124,12 @@ def profile_view(request):
 
 @login_required
 def update_profile_view(request):
+    """Update the authenticated user's own profile only."""
+    # Object-level access control: Only users can update their own profile
+    user = request.user
+    
     if request.method == 'POST':
-        user = request.user
+        # Verify the user is only updating their own profile
         user.first_name = request.POST.get('first_name', user.first_name)
         user.last_name = request.POST.get('last_name', user.last_name)
         user.email = request.POST.get('email', user.email)
@@ -175,19 +179,68 @@ def user_management(request):
 
 @admin_required
 def change_user_role(request, user_id):
-    """Change a user's role - admin only."""
-    target_user = get_object_or_404(User, pk=user_id)
+    """
+    Change a user's role - admin only.
+    IDOR Prevention: Verify the target user exists and admin has permission.
+    """
+    # Verify the target user exists
+    try:
+        target_user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        messages.error(request, "User not found")
+        return redirect('user_management')
+    
+    # Object-level access control: Verify admin is performing a valid operation
+    # Prevent self-role-modification through URL tampering
+    if target_user == request.user:
+        messages.error(request, "You cannot change your own role")
+        return redirect('user_management')
     
     if request.method == 'POST':
         new_role = request.POST.get('role')
-        if new_role in [role[0] for role in Role.choices]:
+        
+        # Validate role is in allowed choices
+        if new_role not in [role[0] for role in Role.choices]:
+            messages.error(request, "Invalid role specified")
+            return redirect('user_management')
+        
+        try:
             target_profile, _ = Profile.objects.get_or_create(user=target_user)
             target_profile.role = new_role
             target_profile.save()
             messages.success(request, f"Role updated for {target_user.username}")
+        except Exception as e:
+            messages.error(request, f"Error updating role: {str(e)}")
+        
         return redirect('user_management')
     
     return render(request, 'justin/change_user_role.html', {'target_user': target_user})
+
+
+@login_required
+def view_user_profile(request, user_id):
+    """
+    View a specific user's profile with IDOR protection.
+    Users can only view their own profile unless they are privileged.
+    """
+    try:
+        target_user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return render(request, 'justin/403.html', {'message': 'User not found.'}, status=404)
+    
+    try:
+        profile = target_user.profile
+    except Profile.DoesNotExist:
+        profile = Profile.objects.create(user=target_user)
+    
+    # Object-level access control: Enforce viewing restrictions
+    # Users can view their own profile or privileged users can view anyone's profile
+    if request.user != target_user and not request.user.profile.is_privileged:
+        return render(request, 'justin/403.html', 
+                     {'message': 'You do not have permission to view this profile.'}, 
+                     status=403)
+    
+    return render(request, 'justin/profile.html', {'profile': profile, 'target_user': target_user})
 
 
 @privileged_required
