@@ -11,6 +11,7 @@ This repository now includes a Django authentication app named `igihozo` that co
 - password change
 - basic profile/account management
 - role-based access control for anonymous, authenticated, and privileged users
+- object-level profile protection to prevent IDOR-style access
 - admin integration for profile records
 - tests for the main authentication flows
 
@@ -42,6 +43,8 @@ venv\Scripts\python.exe manage.py runserver
 - `/login/` login
 - `/logout/` logout
 - `/account/` protected account page
+- `/profiles/<username>/` protected profile detail with object-level authorization
+- `/profiles/<username>/edit/` protected profile edit with object-level authorization
 - `/privileged-dashboard/` privileged-only authorization dashboard
 - `/password-change/` password update
 - `/admin/` Django admin
@@ -60,6 +63,17 @@ Implementation notes:
 - the `instructors` group is created automatically and receives the `view_privileged_dashboard` permission
 - staff users and superusers are also treated as privileged
 - unauthorized privileged-page access is handled with a safe `403` response
+
+## IDOR Protection Strategy
+
+The profile and account-management flows now use explicit object-level checks for username-based routes:
+
+- standard authenticated users can view and edit only their own profile routes
+- privileged users can access authorized profile routes for related protected workflows
+- requests for another user's profile by a non-privileged user return a safe `404`
+- profile objects are filtered against the current authenticated user where appropriate
+
+This removes the insecure assumption that being logged in is enough to access any user-scoped URL.
 
 ## Testing
 

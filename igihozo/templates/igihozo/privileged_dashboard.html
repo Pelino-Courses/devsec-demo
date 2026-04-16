@@ -27,11 +27,12 @@
         <div class="table-wrap">
             <table class="user-table">
                 <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                    </tr>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <th>Protected route</th>
+                        </tr>
                 </thead>
                 <tbody>
                     {% for member in users %}
@@ -51,6 +52,7 @@
                                     Authenticated user
                                 {% endif %}
                             </td>
+                            <td><a href="{% url 'igihozo:profile_detail' member.username %}">View safely</a></td>
                         </tr>
                     {% endfor %}
                 </tbody>

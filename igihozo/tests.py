@@ -28,7 +28,10 @@ class AuthenticationFlowTests(TestCase):
             follow=True,
         )
 
-        self.assertRedirects(response, reverse("igihozo:account"))
+        self.assertRedirects(
+            response,
+            reverse("igihozo:profile_edit", kwargs={"username": "newstudent"}),
+        )
         user = User.objects.get(username="newstudent")
         self.assertEqual(user.email, "newstudent@example.com")
         self.assertEqual(user.profile.display_name, "Igi Hozo")
@@ -54,7 +57,10 @@ class AuthenticationFlowTests(TestCase):
             {"username": "existinguser", "password": self.password},
             follow=True,
         )
-        self.assertRedirects(login_response, reverse("igihozo:account"))
+        self.assertRedirects(
+            login_response,
+            reverse("igihozo:profile_edit", kwargs={"username": "existinguser"}),
+        )
         self.assertTrue(login_response.context["user"].is_authenticated)
 
         logout_response = self.client.post(reverse("igihozo:logout"), follow=True)
@@ -74,7 +80,7 @@ class AuthenticationFlowTests(TestCase):
         self.client.login(username="existinguser", password=self.password)
 
         response = self.client.post(
-            reverse("igihozo:account"),
+            reverse("igihozo:profile_edit", kwargs={"username": "existinguser"}),
             {
                 "email": "updated@example.com",
                 "first_name": "Updated",
@@ -85,10 +91,23 @@ class AuthenticationFlowTests(TestCase):
             follow=True,
         )
 
-        self.assertRedirects(response, reverse("igihozo:account"))
+        self.assertRedirects(
+            response,
+            reverse("igihozo:profile_edit", kwargs={"username": "existinguser"}),
+        )
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "updated@example.com")
         self.assertEqual(self.user.profile.display_name, "Updated Student")
+
+    def test_account_route_redirects_to_owned_profile_edit_view(self):
+        self.client.login(username="existinguser", password=self.password)
+
+        response = self.client.get(reverse("igihozo:account"))
+
+        self.assertRedirects(
+            response,
+            reverse("igihozo:profile_edit", kwargs={"username": "existinguser"}),
+        )
 
     def test_password_change_updates_credentials(self):
         self.client.login(username="existinguser", password=self.password)
@@ -171,3 +190,93 @@ class RoleBasedAccessControlTests(TestCase):
         permission = Permission.objects.get(codename="view_privileged_dashboard")
 
         self.assertTrue(self.instructors_group.permissions.filter(pk=permission.pk).exists())
+
+
+class IdorProtectionTests(TestCase):
+    def setUp(self):
+        self.password = "ComplexPass123!"
+        self.owner = User.objects.create_user(
+            username="owneruser",
+            email="owner@example.com",
+            password=self.password,
+        )
+        self.other_user = User.objects.create_user(
+            username="otheruser",
+            email="other@example.com",
+            password=self.password,
+        )
+        self.instructor = User.objects.create_user(
+            username="instructoridor",
+            email="instructoridor@example.com",
+            password=self.password,
+        )
+        Group.objects.get(name="instructors").user_set.add(self.instructor)
+
+    def test_user_can_view_own_identifier_based_profile(self):
+        self.client.login(username="owneruser", password=self.password)
+
+        response = self.client.get(
+            reverse("igihozo:profile_detail", kwargs={"username": "owneruser"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "owneruser")
+
+    def test_user_cannot_view_another_users_profile_by_changing_url(self):
+        self.client.login(username="owneruser", password=self.password)
+
+        response = self.client.get(
+            reverse("igihozo:profile_detail", kwargs={"username": "otheruser"})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_user_cannot_edit_another_users_profile_by_changing_url(self):
+        self.client.login(username="owneruser", password=self.password)
+
+        response = self.client.post(
+            reverse("igihozo:profile_edit", kwargs={"username": "otheruser"}),
+            {
+                "email": "hijack@example.com",
+                "first_name": "Hijack",
+                "last_name": "Attempt",
+                "display_name": "Hijack Attempt",
+                "bio": "Trying to overwrite another profile.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.other_user.refresh_from_db()
+        self.assertEqual(self.other_user.email, "other@example.com")
+
+    def test_privileged_user_can_view_another_users_profile_for_authorized_workflow(self):
+        self.client.login(username="instructoridor", password=self.password)
+
+        response = self.client.get(
+            reverse("igihozo:profile_detail", kwargs={"username": "otheruser"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "otheruser")
+
+    def test_privileged_user_can_edit_another_users_profile_for_authorized_workflow(self):
+        self.client.login(username="instructoridor", password=self.password)
+
+        response = self.client.post(
+            reverse("igihozo:profile_edit", kwargs={"username": "otheruser"}),
+            {
+                "email": "reviewed@example.com",
+                "first_name": "Reviewed",
+                "last_name": "Student",
+                "display_name": "Reviewed Student",
+                "bio": "Updated by privileged workflow.",
+            },
+            follow=True,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("igihozo:profile_edit", kwargs={"username": "otheruser"}),
+        )
+        self.other_user.refresh_from_db()
+        self.assertEqual(self.other_user.email, "reviewed@example.com")

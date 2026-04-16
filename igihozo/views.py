@@ -3,6 +3,8 @@ from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeDoneView, PasswordChangeView
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -56,36 +58,93 @@ class AccountView(LoginRequiredMixin, FormView):
     success_url = reverse_lazy("igihozo:account")
     login_url = reverse_lazy("igihozo:login")
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["instance"] = self.request.user.profile
-        kwargs["user"] = self.request.user
-        return kwargs
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        return redirect("igihozo:profile_edit", username=request.user.username)
 
-    def form_valid(self, form):
-        form.save()
-        messages.success(self.request, "Your profile has been updated.")
-        return super().form_valid(form)
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_privileged_user"] = user_is_privileged(self.request.user)
-        context["role_labels"] = self.get_role_labels()
-        return context
+class OwnedProfileAccessMixin(LoginRequiredMixin):
+    login_url = reverse_lazy("igihozo:login")
+    allow_privileged_override = True
 
-    def get_role_labels(self):
+    def get_target_user(self):
+        username = self.kwargs["username"]
+        if user_is_privileged(self.request.user) and self.allow_privileged_override:
+            return get_object_or_404(User.objects.select_related("profile"), username=username)
+
+        if username != self.request.user.username:
+            raise Http404("Profile not found.")
+
+        return get_object_or_404(
+            User.objects.select_related("profile").filter(pk=self.request.user.pk),
+            username=username,
+        )
+
+    def get_role_labels(self, target_user):
         labels = []
-        if self.request.user.is_superuser:
+        if target_user.is_superuser:
             labels.append("Administrator")
-        elif self.request.user.is_staff:
+        elif target_user.is_staff:
             labels.append("Staff")
 
-        group_names = set(self.request.user.groups.values_list("name", flat=True))
+        group_names = set(target_user.groups.values_list("name", flat=True))
         if "instructors" in group_names:
             labels.append("Instructor")
         if "students" in group_names:
             labels.append("Student")
         return labels or ["Authenticated user"]
+
+
+class ProfileDetailView(OwnedProfileAccessMixin, TemplateView):
+    template_name = "igihozo/profile_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        target_user = self.get_target_user()
+        context["target_user"] = target_user
+        context["role_labels"] = self.get_role_labels(target_user)
+        context["is_owner"] = target_user.pk == self.request.user.pk
+        context["is_privileged_user"] = user_is_privileged(self.request.user)
+        return context
+
+
+class ProfileEditView(OwnedProfileAccessMixin, FormView):
+    template_name = "igihozo/account.html"
+    form_class = AccountUpdateForm
+    login_url = reverse_lazy("igihozo:login")
+
+    def dispatch(self, request, *args, **kwargs):
+        self.target_user = self.get_target_user()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse_lazy("igihozo:profile_edit", kwargs={"username": self.target_user.username})
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["instance"] = self.target_user.profile
+        kwargs["user"] = self.target_user
+        return kwargs
+
+    def form_valid(self, form):
+        form.save()
+        if self.target_user.pk == self.request.user.pk:
+            messages.success(self.request, "Your profile has been updated.")
+        else:
+            messages.success(
+                self.request,
+                f"Profile for {self.target_user.username} has been updated successfully.",
+            )
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["target_user"] = self.target_user
+        context["is_privileged_user"] = user_is_privileged(self.request.user)
+        context["role_labels"] = self.get_role_labels(self.target_user)
+        context["is_owner"] = self.target_user.pk == self.request.user.pk
+        return context
 
 
 class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
