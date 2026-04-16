@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head><title>Profile</title></head>
+<body>
+    <h1>Profile: {{ user.username }}</h1>
+    <p>Role: {{ user.userprofile.role }}</p>
+    
+    <h3>Your Recent Security Activity</h3>
+    <ul>
+        {% for log in logs %}
+            <li>[{{ log.timestamp }}] {{ log.event_type }}: {{ log.details }}</li>
+        {% empty %}
+            <li>No activity recorded.</li>
+        {% endfor %}
+    </ul>
+
+    <hr>
+    <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit">Logout</button>
+    </form>
+</body>
+</html>
