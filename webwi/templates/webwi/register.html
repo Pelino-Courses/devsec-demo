@@ -1,0 +1,48 @@
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card auth-card">
+    <h1>Create Account</h1>
+    <p class="lead">Register once, then use your credentials to access protected routes.</p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
+
+        <div class="field">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            {{ form.username }}
+            {{ form.username.errors }}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+            {{ form.email }}
+            {{ form.email.errors }}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+            {{ form.password1 }}
+            {{ form.password1.errors }}
+            {% if form.password1.help_text %}
+                <small class="helptext">{{ form.password1.help_text|safe }}</small>
+            {% endif %}
+        </div>
+
+        <div class="field">
+            <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+            {{ form.password2 }}
+            {{ form.password2.errors }}
+        </div>
+
+        <div class="actions">
+            <button class="btn" type="submit">Register</button>
+            <a class="btn-ghost" href="{% url 'webwi:login' %}">Already have account</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
