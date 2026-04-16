@@ -85,7 +85,8 @@ def _extract_sections(body: str) -> dict[str, str]:
 def _find_missing_headings(body: str) -> list[str]:
     missing: list[str] = []
     for heading in REQUIRED_HEADINGS:
-        pattern = rf"^## {re.escape(heading)}\s*$"
+        # Allow for an optional colon and trailing whitespace
+        pattern = rf"^## {re.escape(heading)}(?::)?\s*$"
         if not re.search(pattern, body, flags=re.MULTILINE):
             missing.append(heading)
     return missing

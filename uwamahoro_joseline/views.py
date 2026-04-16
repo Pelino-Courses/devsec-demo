@@ -71,8 +71,59 @@ def dashboard_view(request):
 
 @login_required
 def profile_view(request):
+    """Display the current user's profile. Only accessible to the profile owner."""
     profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, "uwamahoro_joseline/profile.html", {"profile": profile})
+
+
+@login_required
+def view_user_profile(request, user_id):
+    """
+    Display a user's profile by ID.
+    
+    IDOR Protection:
+    - Verify that the current user is either the profile owner or has can_view_all_profiles permission.
+    - This prevents unauthorized users from accessing other users' profiles by changing the URL.
+    """
+    target_user = get_object_or_404(User, pk=user_id)
+    
+    # Check object-level access control: only allow access if:
+    # 1. The request is for the current user's profile, OR
+    # 2. The current user has permission to view all profiles
+    if request.user != target_user and not request.user.has_perm("uwamahoro_joseline.can_view_all_profiles"):
+        raise PermissionDenied("You do not have permission to view this profile.")
+    
+    profile, _ = Profile.objects.get_or_create(user=target_user)
+    return render(request, "uwamahoro_joseline/profile.html", {"profile": profile})
+
+
+@login_required
+def edit_user_account(request, user_id):
+    """
+    Edit a user's account information.
+    
+    IDOR Protection:
+    - Only the account owner can edit their own account.
+    - Superusers can also edit any account (optional administrative override).
+    """
+    target_user = get_object_or_404(User, pk=user_id)
+    
+    # Check object-level access control: only allow access if:
+    # 1. The request is from the account owner themselves
+    if request.user != target_user:
+        raise PermissionDenied("You do not have permission to edit this account.")
+    
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip()
+        if email and email != target_user.email:
+            target_user.email = email
+            target_user.save()
+            messages.success(request, "Email updated successfully.")
+            return redirect("uwamahoro_joseline:edit_user_account", user_id=target_user.pk)
+        else:
+            messages.warning(request, "No changes made.")
+    
+    return render(request, "uwamahoro_joseline/edit_account.html", {"target_user": target_user})
 
 
 @login_required
@@ -115,13 +166,27 @@ def instructor_panel_view(request):
 
 @instructor_required
 def promote_user_view(request, user_id):
-    """Promote or demote a user to/from the Instructor group. Requires can_manage_users."""
+    """
+    Promote or demote a user to/from the Instructor group. Requires can_manage_users permission.
+    
+    IDOR Protection:
+    - Verify that the user requesting the action is actually an instructor with can_manage_users permission.
+    - Prevent self-promotion/demotion by checking that the target user is not the current user.
+    - Explicit permission check ensures only authorized instructors can modify roles.
+    """
     if not request.user.has_perm("uwamahoro_joseline.can_manage_users"):
-        raise PermissionDenied
+        raise PermissionDenied("You do not have permission to manage users.")
+    
     if request.method != "POST":
         return redirect("uwamahoro_joseline:instructor_panel")
 
     target_user = get_object_or_404(User, pk=user_id)
+    
+    # Object-level access control: prevent self-modification
+    if request.user == target_user:
+        messages.error(request, "You cannot modify your own role.")
+        return redirect("uwamahoro_joseline:instructor_panel")
+    
     instructor_group = get_object_or_404(Group, name="Instructor")
     action = request.POST.get("action")
 

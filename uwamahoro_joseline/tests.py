@@ -379,3 +379,233 @@ class RBACInstructorTests(TestCase):
         self.assertEqual(response.status_code, 200)
         response = self.client.get(reverse("uwamahoro_joseline:profile"))
         self.assertEqual(response.status_code, 200)
+
+
+# ── IDOR (Insecure Direct Object Reference) Protection Tests ─────────────────
+
+class IDORProtectionViewUserProfileTests(TestCase):
+    """Test IDOR protection for the view_user_profile endpoint."""
+
+    def setUp(self):
+        self.client = Client()
+        self.student1 = User.objects.create_user(
+            username="student1", email="student1@test.com", password="test123"
+        )
+        self.student2 = User.objects.create_user(
+            username="student2", email="student2@test.com", password="test123"
+        )
+        self.instructor_group = make_instructor_group()
+        self.instructor = User.objects.create_user(
+            username="instructor1", email="instructor1@test.com", password="test123"
+        )
+        self.instructor.groups.add(self.instructor_group)
+        self.instructor = User.objects.get(pk=self.instructor.pk)
+        Profile.objects.create(user=self.student1, bio="Student 1 bio")
+        Profile.objects.create(user=self.student2, bio="Student 2 bio")
+        Profile.objects.create(user=self.instructor, bio="Instructor bio")
+
+    def test_student_can_view_own_profile(self):
+        """Test that a student can view their own profile."""
+        self.client.login(username="student1", password="test123")
+        response = self.client.get(
+            reverse("uwamahoro_joseline:view_user_profile", args=[self.student1.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "student1@test.com")
+
+    def test_student_cannot_view_other_student_profile(self):
+        """Test that a student CANNOT view another student's profile (IDOR prevention)."""
+        self.client.login(username="student1", password="test123")
+        response = self.client.get(
+            reverse("uwamahoro_joseline:view_user_profile", args=[self.student2.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_can_view_any_profile(self):
+        """Test that an instructor WITH can_view_all_profiles can view any profile."""
+        self.client.login(username="instructor1", password="test123")
+        response = self.client.get(
+            reverse("uwamahoro_joseline:view_user_profile", args=[self.student1.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "student1@test.com")
+
+    def test_unauthenticated_cannot_view_profile(self):
+        """Test that unauthenticated users are redirected to login."""
+        response = self.client.get(
+            reverse("uwamahoro_joseline:view_user_profile", args=[self.student1.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login/", response["Location"])
+
+    def test_view_nonexistent_user_profile_returns_404(self):
+        """Test that viewing a nonexistent user's profile returns 404."""
+        self.client.login(username="student1", password="test123")
+        response = self.client.get(
+            reverse("uwamahoro_joseline:view_user_profile", args=[99999])
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_instructor_can_view_own_profile_via_specific_endpoint(self):
+        """Test that instructors can view their own profile via the view_user_profile endpoint."""
+        self.client.login(username="instructor1", password="test123")
+        response = self.client.get(
+            reverse("uwamahoro_joseline:view_user_profile", args=[self.instructor.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "instructor1@test.com")
+
+
+class IDORProtectionEditUserAccountTests(TestCase):
+    """Test IDOR protection for the edit_user_account endpoint."""
+
+    def setUp(self):
+        self.client = Client()
+        self.student1 = User.objects.create_user(
+            username="student1", email="student1@test.com", password="test123"
+        )
+        self.student2 = User.objects.create_user(
+            username="student2", email="student2@test.com", password="test123"
+        )
+        self.instructor_group = make_instructor_group()
+        self.instructor = User.objects.create_user(
+            username="instructor1", email="instructor1@test.com", password="test123"
+        )
+        self.instructor.groups.add(self.instructor_group)
+        self.instructor = User.objects.get(pk=self.instructor.pk)
+
+    def test_student_can_edit_own_account(self):
+        """Test that a student can edit their own account."""
+        self.client.login(username="student1", password="test123")
+        new_email = "newemail@test.com"
+        response = self.client.post(
+            reverse("uwamahoro_joseline:edit_user_account", args=[self.student1.pk]),
+            {"email": new_email},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.student1.refresh_from_db()
+        self.assertEqual(self.student1.email, new_email)
+
+    def test_student_cannot_edit_other_student_account(self):
+        """Test that a student CANNOT edit another student's account (IDOR prevention)."""
+        self.client.login(username="student1", password="test123")
+        original_email = self.student2.email
+        response = self.client.post(
+            reverse("uwamahoro_joseline:edit_user_account", args=[self.student2.pk]),
+            {"email": "hacker@test.com"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.student2.refresh_from_db()
+        self.assertEqual(self.student2.email, original_email)
+
+    def test_student_cannot_edit_instructor_account(self):
+        """Test that a student CANNOT edit an instructor's account."""
+        self.client.login(username="student1", password="test123")
+        original_email = self.instructor.email
+        response = self.client.post(
+            reverse("uwamahoro_joseline:edit_user_account", args=[self.instructor.pk]),
+            {"email": "hacker@test.com"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.instructor.refresh_from_db()
+        self.assertEqual(self.instructor.email, original_email)
+
+    def test_unauthenticated_cannot_edit_account(self):
+        """Test that unauthenticated users cannot edit accounts."""
+        response = self.client.post(
+            reverse("uwamahoro_joseline:edit_user_account", args=[self.student1.pk]),
+            {"email": "hacker@test.com"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login/", response["Location"])
+
+    def test_edit_nonexistent_user_account_returns_404(self):
+        """Test that editing a nonexistent user's account returns 404."""
+        self.client.login(username="student1", password="test123")
+        response = self.client.post(
+            reverse("uwamahoro_joseline:edit_user_account", args=[99999]),
+            {"email": "test@test.com"},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_instructor_cannot_edit_other_instructor_account(self):
+        """Test that instructors cannot edit other instructors' accounts (enforce object-level access)."""
+        instructor2 = User.objects.create_user(
+            username="instructor2", email="instructor2@test.com", password="test123"
+        )
+        instructor2.groups.add(self.instructor_group)
+        self.client.login(username="instructor1", password="test123")
+        original_email = instructor2.email
+        response = self.client.post(
+            reverse("uwamahoro_joseline:edit_user_account", args=[instructor2.pk]),
+            {"email": "hacker@test.com"},
+        )
+        self.assertEqual(response.status_code, 403)
+        instructor2.refresh_from_db()
+        self.assertEqual(instructor2.email, original_email)
+
+
+class IDORProtectionPromoteUserTests(TestCase):
+    """Test IDOR protection for the promote_user endpoint."""
+
+    def setUp(self):
+        self.client = Client()
+        self.student1 = User.objects.create_user(
+            username="student1", password="test123"
+        )
+        self.student2 = User.objects.create_user(
+            username="student2", password="test123"
+        )
+        self.instructor_group = make_instructor_group()
+        self.instructor = User.objects.create_user(
+            username="instructor1", password="test123"
+        )
+        self.instructor.groups.add(self.instructor_group)
+        self.instructor = User.objects.get(pk=self.instructor.pk)
+
+    def test_instructor_can_promote_student(self):
+        """Test that an instructor WITH can_manage_users can promote a student."""
+        self.client.login(username="instructor1", password="test123")
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.student1.pk]),
+            {"action": "promote"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.student1.groups.filter(name="Instructor").exists())
+
+    def test_student_cannot_promote_other_student(self):
+        """Test that a student CANNOT promote another student."""
+        self.client.login(username="student1", password="test123")
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.student2.pk]),
+            {"action": "promote"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self.student2.groups.filter(name="Instructor").exists())
+
+    def test_instructor_cannot_promote_self(self):
+        """Test that an instructor cannot promote/demote themselves (self-modification prevention)."""
+        self.client.login(username="instructor1", password="test123")
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[self.instructor.pk]),
+            {"action": "demote"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("cannot modify your own role" in str(m).lower() for m in messages_list)
+        )
+        self.instructor.refresh_from_db()
+        self.assertTrue(self.instructor.groups.filter(name="Instructor").exists())
+
+    def test_promote_nonexistent_user_returns_404(self):
+        """Test that promoting a nonexistent user returns 404."""
+        self.client.login(username="instructor1", password="test123")
+        response = self.client.post(
+            reverse("uwamahoro_joseline:promote_user", args=[99999]),
+            {"action": "promote"},
+        )
+        self.assertEqual(response.status_code, 404)
