@@ -1,0 +1,63 @@
+{% extends "igihozo/base.html" %}
+
+{% block title %}Privileged Dashboard | Igihozo Auth Service{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <article class="panel">
+        <p class="eyebrow">Role-based access control</p>
+        <h1>Privileged dashboard</h1>
+        <p>This page is restricted to instructors, staff members, and administrators.</p>
+        <div class="role-grid">
+            {% for role_name, role_description in role_summary.items %}
+                <div class="account-stat">
+                    <span>{{ role_name|cut:"_"|title }}</span>
+                    <strong>{{ role_description }}</strong>
+                </div>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel">
+        <div class="panel-heading">
+            <p class="eyebrow">Protected member overview</p>
+            <h2>Registered users</h2>
+            <p>Standard users cannot view this list.</p>
+        </div>
+        <div class="table-wrap">
+            <table class="user-table">
+                <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <th>Protected route</th>
+                        </tr>
+                </thead>
+                <tbody>
+                    {% for member in users %}
+                        <tr>
+                            <td>{{ member.username }}</td>
+                            <td>{{ member.email|default:"Not provided" }}</td>
+                            <td>
+                                {% if member.is_superuser %}
+                                    Administrator
+                                {% elif member.is_staff %}
+                                    Staff
+                                {% elif member.groups.all %}
+                                    {% for group in member.groups.all %}
+                                        {{ group.name }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    Authenticated user
+                                {% endif %}
+                            </td>
+                            <td><a href="{% url 'igihozo:profile_detail' member.username %}">View safely</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+{% endblock %}
