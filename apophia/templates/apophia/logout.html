@@ -1,0 +1,15 @@
+{% extends "apophia/base.html" %}
+
+{% block title %}Logged Out - Apophia{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 4rem auto; text-align: center;">
+    <div class="card">
+        <h1 style="color: var(--primary-color);">👋 Logged Out</h1>
+        <p style="margin-bottom: 2rem; color: var(--text-muted);">
+            You have been successfully logged out. Thank you for using Apophia UAS.
+        </p>
+        <a href="{% url 'login' %}" class="btn">Log In Again</a>
+    </div>
+</div>
+{% endblock %}

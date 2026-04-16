@@ -1,0 +1,30 @@
+{% extends "apophia/base.html" %}
+
+{% block title %}Dashboard - Apophia{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Welcome, {{ user.username }}!</h1>
+    <p style="font-size: 1.1rem; color: var(--text-muted); margin-bottom: 2rem;">
+        This is your protected authenticated area. You have successfully logged in to the Apophia User Authentication Service.
+    </p>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+        <div class="card" style="background: rgba(255, 255, 255, 0.05);">
+            <h3>Your Profile</h3>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem;">View and manage your account details and profile information.</p>
+            <a href="{% url 'profile' %}" class="btn">Go to Profile</a>
+        </div>
+        <div class="card" style="background: rgba(255, 255, 255, 0.05);">
+            <h3>Security</h3>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem;">Update your password and manage your session security.</p>
+            <a href="{% url 'password_change' %}" class="btn btn-outline">Change Password</a>
+        </div>
+        <div class="card" style="background: rgba(255, 255, 255, 0.05);">
+            <h3>About UAS</h3>
+            <p style="font-size: 0.875rem; margin-bottom: 1rem;">The Apophia UAS is built with security and best practices in mind.</p>
+            <a href="https://github.com/Pelino-Courses/devsec-demo" target="_blank" class="btn btn-outline">Learn More</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
