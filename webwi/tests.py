@@ -973,3 +973,17 @@ class SecuritySettingsTests(TestCase):
 		"""ALLOWED_HOSTS must not contain '*' — wildcard enables host-header injection."""
 		from django.conf import settings as s
 		self.assertNotIn('*', s.ALLOWED_HOSTS)
+
+	def test_ssl_redirect_is_not_tied_to_debug_flag(self):
+		"""SECURE_SSL_REDIRECT must be a real bool controlled by DJANGO_HTTPS_REDIRECT.
+
+		Tying SSL redirect to ``not DEBUG`` caused every CI run with
+		DEBUG=False to redirect all test-client HTTP requests to HTTPS (301),
+		breaking the entire test suite.  The setting is now independent so
+		staging/CI can run DEBUG=False without enabling HTTPS enforcement.
+		"""
+		import os
+		from django.conf import settings as s
+		# The env var governs the setting; absent = False.
+		expected = os.environ.get('DJANGO_HTTPS_REDIRECT', 'False') == 'True'
+		self.assertEqual(s.SECURE_SSL_REDIRECT, expected)

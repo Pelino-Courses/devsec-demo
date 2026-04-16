@@ -20,10 +20,11 @@ Required environment variables (no defaults, startup fails if absent):
   DJANGO_SECRET_KEY  — cryptographically random string, 50+ chars
 
 Optional environment variables (safe defaults shown):
-  DJANGO_DEBUG       — 'True' to enable debug mode (default: False)
-  DJANGO_ALLOWED_HOSTS — comma-separated hostnames (default: '' → [] )
-  EMAIL_BACKEND      — dotted path to mail backend
-  DEFAULT_FROM_EMAIL — sender address for outgoing mail
+  DJANGO_DEBUG          — 'True' to enable debug mode (default: False)
+  DJANGO_ALLOWED_HOSTS  — comma-separated hostnames (default: '' → [] )
+  DJANGO_HTTPS_REDIRECT — 'True' to enable SSL redirect + HSTS (default: False)
+  EMAIL_BACKEND         — dotted path to mail backend
+  DEFAULT_FROM_EMAIL    — sender address for outgoing mail
 """
 import os
 from pathlib import Path
@@ -211,7 +212,14 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 # ---------------------------------------------------------------------------
 # Transport security
 #
-# SSL redirect: forces all HTTP requests to HTTPS at the Django layer.
+# SSL redirect and HSTS are controlled by a dedicated env var rather than
+# being derived from DEBUG.  This allows DEBUG=False in staging/CI
+# environments that do not terminate TLS, without accidentally enabling
+# HTTPS enforcement and breaking plain-HTTP test clients.
+#
+# Set DJANGO_HTTPS_REDIRECT=True only in production deployments where
+# all traffic arrives over HTTPS.
+#
 # HSTS: instructs browsers to only connect over HTTPS for one year,
 #   including subdomains, and opts into browser preload lists.
 # Content-type nosniff: prevents browsers from MIME-sniffing responses away
@@ -220,10 +228,12 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 #   Referer header to cross-origin destinations.
 # ---------------------------------------------------------------------------
 
-SECURE_SSL_REDIRECT = not DEBUG                    # redirect HTTP→HTTPS in prod
-SECURE_HSTS_SECONDS = 0 if DEBUG else 31_536_000   # 1 year in production
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
-SECURE_HSTS_PRELOAD = not DEBUG
+_https = os.environ.get('DJANGO_HTTPS_REDIRECT', 'False') == 'True'
+
+SECURE_SSL_REDIRECT = _https
+SECURE_HSTS_SECONDS = 31_536_000 if _https else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _https
+SECURE_HSTS_PRELOAD = _https
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 
