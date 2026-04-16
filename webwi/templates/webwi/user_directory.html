@@ -24,10 +24,8 @@
                             admin
                         {% elif user.is_staff %}
                             staff
-                        {% elif user.is_authenticated %}
-                            authenticated-user
                         {% else %}
-                            anonymous
+                            user
                         {% endif %}
                     </td>
                 </tr>

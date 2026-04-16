@@ -31,7 +31,7 @@
         <label for="display-name-input">Display Name <small>(quick update)</small></label>
         <div style="display:flex;gap:.5rem;align-items:center;">
             <input id="display-name-input" class="input" style="max-width:20rem;"
-                   value="{{ request.user.profile.display_name|default:'' }}"
+                   value="{{ profile.display_name|default:'' }}"
                    placeholder="Set a display name">
             <button id="display-name-save" class="btn" type="button">Save</button>
         </div>

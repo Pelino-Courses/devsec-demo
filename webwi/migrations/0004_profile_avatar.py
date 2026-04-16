@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+import webwi.models
+
 
 class Migration(migrations.Migration):
 
@@ -13,6 +15,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='profile',
             name='avatar',
-            field=models.FileField(blank=True, null=True, upload_to='avatars/'),
+            field=models.FileField(
+                blank=True,
+                null=True,
+                upload_to=webwi.models._avatar_upload_path,
+                validators=[webwi.models.validate_avatar_upload],
+            ),
         ),
     ]
