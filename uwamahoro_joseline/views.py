@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .decorators import instructor_required
-from .forms import RegistrationForm
+from .forms import AvatarUploadForm, RegistrationForm
 from .models import Profile, LoginAttempt
 
 # Dedicated audit logger — configured in settings.LOGGING.
@@ -310,6 +310,26 @@ def profile_view(request):
     """Display the current user's profile. Only accessible to the profile owner."""
     profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, "uwamahoro_joseline/profile.html", {"profile": profile})
+
+
+@login_required
+def upload_avatar(request):
+    """
+    INSECURE: accepts any uploaded file without type, extension, size,
+    or content validation. An attacker can upload a .php webshell, an
+    .html phishing page, or a multi-GB file.
+    """
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    if request.method == "POST":
+        form = AvatarUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            profile.avatar = form.cleaned_data["avatar"]  # no validation at all
+            profile.save()
+            messages.success(request, "Avatar uploaded.")
+            return redirect("uwamahoro_joseline:profile")
+    else:
+        form = AvatarUploadForm()
+    return render(request, "uwamahoro_joseline/upload_avatar.html", {"form": form})
 
 
 @login_required

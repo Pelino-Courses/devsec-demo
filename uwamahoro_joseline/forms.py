@@ -8,6 +8,14 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 
 
+class AvatarUploadForm(forms.Form):
+    """
+    INSECURE: accepts any file without type, size, or content validation.
+    This is the baseline that the secure version will fix.
+    """
+    avatar = forms.FileField()
+
+
 class RegistrationForm(UserCreationForm):
     """
     Custom registration form extending Django's UserCreationForm.

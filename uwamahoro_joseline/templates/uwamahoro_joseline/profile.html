@@ -61,7 +61,18 @@
         });
         </script>
 
-        <p style="margin-top:1rem;"><a href="{% url 'uwamahoro_joseline:edit_user_account' profile.user.id %}">Edit account details</a></p>
+        <p style="margin-top:1rem;">
+            <a href="{% url 'uwamahoro_joseline:edit_user_account' profile.user.id %}">Edit account details</a>
+            &nbsp;|&nbsp;
+            <a href="{% url 'uwamahoro_joseline:upload_avatar' %}">Upload avatar</a>
+        </p>
+    {% endif %}
+
+    {% if profile.avatar %}
+        <div style="margin-top:1rem;">
+            <p><strong>Avatar:</strong></p>
+            <img src="{{ profile.avatar.url }}" alt="Avatar" style="max-width:150px;border-radius:8px;">
+        </div>
     {% endif %}
 </div>
 {% endblock %}

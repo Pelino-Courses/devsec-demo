@@ -1,0 +1,13 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>Upload Avatar</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload</button>
+    </form>
+    <p><a href="{% url 'uwamahoro_joseline:profile' %}">Back to profile</a></p>
+</div>
+{% endblock %}
