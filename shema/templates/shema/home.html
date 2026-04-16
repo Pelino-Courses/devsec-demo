@@ -1,0 +1,123 @@
+{% extends 'shema/base.html' %}
+
+{% block title %}Home | S-Auth Secure{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="row min-vh-75 align-items-center gy-5">
+
+        <!-- ── LEFT: Hero copy ───────────────────────────── -->
+        <div class="col-lg-6 text-center text-lg-start hero-title">
+            <div class="security-badge mb-4">
+                <span class="pulse-dot"></span>
+                Verified System Security Essentials
+            </div>
+
+            <h1 class="display-3 fw-800 mb-4 lh-sm">
+                Secure Auth<br>
+                <span class="gradient-text">For Modern Apps</span>
+            </h1>
+
+            <p class="lead text-muted mb-5 pe-lg-4" style="font-size:1.1rem;">
+                A battle-hardened authentication service built on Django's robust security framework,
+                demonstrating best practices in session management, CSRF protection, and identity auditing.
+            </p>
+
+            <!-- Feature pills -->
+            <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start mb-5">
+                <span class="feature-pill">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    CSRF Protected
+                </span>
+                <span class="feature-pill">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Security Headers
+                </span>
+                <span class="feature-pill">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Audit Logging
+                </span>
+                <span class="feature-pill">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Secure Sessions
+                </span>
+            </div>
+
+            <!-- CTAs -->
+            <div class="hero-cta d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'profile' %}" class="btn btn-primary btn-lg px-5" id="cta-dashboard">
+                        Go to Dashboard
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ms-2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                {% else %}
+                    <a href="{% url 'register' %}" class="btn btn-primary btn-lg px-5" id="cta-register">
+                        Get Started Free
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="ms-2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                    <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg px-5" id="cta-login">Sign In</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ── RIGHT: Security Card ──────────────────────── -->
+        <div class="col-lg-6 hero-card">
+            <div class="glass-card p-4 p-md-5 text-center float-anim">
+
+                <!-- Big shield icon -->
+                <div class="mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"
+                         viewBox="0 0 24 24" fill="none"
+                         stroke="url(#shield-grad)" stroke-width="1.5"
+                         stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true">
+                        <defs>
+                            <linearGradient id="shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%"   style="stop-color:#38bdf8;stop-opacity:1"/>
+                                <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1"/>
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                </div>
+
+                <h2 class="h4 fw-700 mb-2">Military-Grade Defaults</h2>
+                <p class="text-muted small mb-4 mx-auto" style="max-width:340px;">
+                    Our implementation uses strict HTTP security headers, PBKDF2-SHA256 password hashing,
+                    and intelligent session auditing middleware to ensure your identity remains yours alone.
+                </p>
+
+                <!-- Stats row -->
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="stat-chip">
+                            <div class="stat-value">100%</div>
+                            <div class="stat-label">CSRF Secure</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-chip">
+                            <div class="stat-value">Live</div>
+                            <div class="stat-label">Audit Logging</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-chip">
+                            <div class="stat-value">HSTS</div>
+                            <div class="stat-label">Enforced</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-chip">
+                            <div class="stat-value">XSS ✓</div>
+                            <div class="stat-label">Filtered</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
