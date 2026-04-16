@@ -14,6 +14,9 @@ urlpatterns = [
     path('profile/<str:username>/edit/', views.profile_edit, name='profile_edit'),
     path('password-change/', views.password_change, name='password_change'),
     path('password-change/done/', views.password_change_done, name='password_change_done'),
+    path('avatar/upload/', views.avatar_upload, name='avatar_upload'),
+    path('documents/', views.documents, name='documents'),
+    path('documents/<int:pk>/download/', views.document_download, name='document_download'),
     path('instructor/', views.instructor_dashboard, name='instructor_dashboard'),
     path(
         'password-reset/',

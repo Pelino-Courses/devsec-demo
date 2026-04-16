@@ -1,3 +1,4 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
@@ -6,7 +7,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.core import mail
 from django.utils import timezone
-from tresor.models import LoginAttempt, MAX_ATTEMPTS, LOCKOUT_MINUTES
+from tresor.models import LoginAttempt, MAX_ATTEMPTS, LOCKOUT_MINUTES, Document
 
 
 class RegistrationTests(TestCase):
@@ -435,3 +436,114 @@ class BruteForceProtectionTests(TestCase):
         })
         self.assertRedirects(response, reverse('tresor:dashboard'))
         self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+
+class FileUploadTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("uploader", password="Securepass123!")
+        self.other = User.objects.create_user("other", password="Securepass123!")
+        instructor_group, _ = Group.objects.get_or_create(name="instructor")
+        self.instructor = User.objects.create_user("instructor", password="Securepass123!")
+        self.instructor.groups.add(instructor_group)
+        self.client.login(username="uploader", password="Securepass123!")
+
+    def _png(self, size=64):
+        return SimpleUploadedFile("photo.png", bytes([0x89, 80, 78, 71, 13, 10, 26, 10]) + b"A" * (size - 8), content_type="image/png")
+
+    def _jpeg(self, size=64):
+        return SimpleUploadedFile("photo.jpg", bytes([0xFF, 0xD8, 0xFF, 0xE0]) + b"A" * (size - 4), content_type="image/jpeg")
+
+    def _pdf(self, size=64):
+        return SimpleUploadedFile("doc.pdf", b"%PDF-1.4 " + b"A" * (size - 9), content_type="application/pdf")
+
+    def _txt(self, content=b"Hello world"):
+        return SimpleUploadedFile("note.txt", content, content_type="text/plain")
+
+    def test_valid_png_avatar_accepted(self):
+        response = self.client.post(reverse("tresor:avatar_upload"), {"avatar": self._png()})
+        self.assertRedirects(response, reverse("tresor:profile"))
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.avatar.name)
+
+    def test_valid_jpeg_avatar_accepted(self):
+        response = self.client.post(reverse("tresor:avatar_upload"), {"avatar": self._jpeg()})
+        self.assertRedirects(response, reverse("tresor:profile"))
+
+    def test_php_disguised_as_png_rejected(self):
+        bad = SimpleUploadedFile("shell.php.png", b"<?php system();", content_type="image/png")
+        response = self.client.post(reverse("tresor:avatar_upload"), {"avatar": bad})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "does not match")
+
+    def test_exe_file_rejected_as_avatar(self):
+        bad = SimpleUploadedFile("virus.exe", b"MZ", content_type="application/octet-stream")
+        response = self.client.post(reverse("tresor:avatar_upload"), {"avatar": bad})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Allowed types")
+
+    def test_oversized_avatar_rejected(self):
+        big = SimpleUploadedFile("big.png", bytes([0x89, 80, 78, 71, 13, 10, 26, 10]) + b"A" * (3 * 1024 * 1024), content_type="image/png")
+        response = self.client.post(reverse("tresor:avatar_upload"), {"avatar": big})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "2 MB")
+
+    def test_avatar_stored_with_uuid_not_original_name(self):
+        response = self.client.post(reverse("tresor:avatar_upload"), {"avatar": self._png()})
+        self.assertRedirects(response, reverse("tresor:profile"))
+        self.user.profile.refresh_from_db()
+        self.assertNotIn("photo.png", self.user.profile.avatar.name)
+
+    def test_valid_pdf_document_accepted(self):
+        response = self.client.post(reverse("tresor:documents"), {"document": self._pdf()})
+        self.assertRedirects(response, reverse("tresor:documents"))
+        self.assertEqual(Document.objects.filter(owner=self.user).count(), 1)
+
+    def test_valid_txt_document_accepted(self):
+        response = self.client.post(reverse("tresor:documents"), {"document": self._txt()})
+        self.assertRedirects(response, reverse("tresor:documents"))
+        self.assertEqual(Document.objects.filter(owner=self.user).count(), 1)
+
+    def test_php_file_rejected_as_document(self):
+        bad = SimpleUploadedFile("shell.php", b"<?php system();", content_type="application/x-php")
+        response = self.client.post(reverse("tresor:documents"), {"document": bad})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Document.objects.filter(owner=self.user).count(), 0)
+
+    def test_fake_pdf_rejected(self):
+        bad = SimpleUploadedFile("not_really.pdf", b"<?php echo 1;", content_type="application/pdf")
+        response = self.client.post(reverse("tresor:documents"), {"document": bad})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "PDF")
+        self.assertEqual(Document.objects.filter(owner=self.user).count(), 0)
+
+    def test_oversized_document_rejected(self):
+        big = SimpleUploadedFile("big.pdf", b"%PDF-1.4 " + b"A" * (6 * 1024 * 1024), content_type="application/pdf")
+        response = self.client.post(reverse("tresor:documents"), {"document": big})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "5 MB")
+
+    def test_owner_can_download_document(self):
+        doc = Document.objects.create(owner=self.user, original_name="doc.pdf")
+        doc.file.save("doc.pdf", self._pdf(), save=True)
+        response = self.client.get(reverse("tresor:document_download", kwargs={"pk": doc.pk}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_other_user_cannot_download_document(self):
+        doc = Document.objects.create(owner=self.user, original_name="doc.pdf")
+        doc.file.save("doc.pdf", self._pdf(), save=True)
+        self.client.login(username="other", password="Securepass123!")
+        response = self.client.get(reverse("tresor:document_download", kwargs={"pk": doc.pk}))
+        self.assertEqual(response.status_code, 403)
+
+    def test_instructor_can_download_any_document(self):
+        doc = Document.objects.create(owner=self.user, original_name="doc.pdf")
+        doc.file.save("doc.pdf", self._pdf(), save=True)
+        self.client.login(username="instructor", password="Securepass123!")
+        response = self.client.get(reverse("tresor:document_download", kwargs={"pk": doc.pk}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_document_stored_with_uuid_not_original_name(self):
+        self.client.post(reverse("tresor:documents"), {"document": self._pdf()})
+        doc = Document.objects.get(owner=self.user)
+        self.assertEqual(doc.original_name, "doc.pdf")
+        self.assertNotIn("doc.pdf", doc.file.name)

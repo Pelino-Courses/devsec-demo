@@ -5,9 +5,10 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import FileResponse
 from .decorators import instructor_required
-from .forms import RegistrationForm, LoginForm, ProfileUpdateForm
-from .models import LoginAttempt
+from .forms import RegistrationForm, LoginForm, ProfileUpdateForm, AvatarUploadForm, DocumentUploadForm
+from .models import LoginAttempt, Document
 
 
 def _is_instructor(user):
@@ -132,3 +133,51 @@ def password_change_done(request):
 def instructor_dashboard(request):
     users = User.objects.select_related('profile').order_by('username')
     return render(request, 'tresor/instructor_dashboard.html', {'users': users})
+
+
+@login_required
+def avatar_upload(request):
+    if request.method == 'POST':
+        form = AvatarUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            profile = request.user.profile
+            if profile.avatar:
+                profile.avatar.delete(save=False)
+            profile.avatar.save(form.cleaned_data['avatar'].name, form.cleaned_data['avatar'], save=True)
+            messages.success(request, 'Avatar updated.')
+            return redirect('tresor:profile')
+    else:
+        form = AvatarUploadForm()
+    return render(request, 'tresor/avatar_upload.html', {'form': form})
+
+
+@login_required
+def documents(request):
+    if request.method == 'POST':
+        form = DocumentUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded = form.cleaned_data['document']
+            doc = Document(owner=request.user, original_name=uploaded.name)
+            doc.file.save(uploaded.name, uploaded, save=True)
+            messages.success(request, 'Document uploaded.')
+            return redirect('tresor:documents')
+    else:
+        form = DocumentUploadForm()
+    return render(request, 'tresor/documents.html', {
+        'form': form,
+        'documents': Document.objects.filter(owner=request.user).order_by('-uploaded_at'),
+    })
+
+
+@login_required
+def document_download(request, pk):
+    doc = get_object_or_404(Document, pk=pk)
+    if request.user != doc.owner and not _is_instructor(request.user):
+        raise PermissionDenied
+    _CONTENT_TYPES = {'.pdf': 'application/pdf', '.txt': 'text/plain; charset=utf-8'}
+    import os
+    ext = os.path.splitext(doc.original_name)[1].lower()
+    content_type = _CONTENT_TYPES.get(ext, 'application/octet-stream')
+    response = FileResponse(doc.file.open('rb'), content_type=content_type)
+    response['Content-Disposition'] = f'attachment; filename="{doc.original_name}"'
+    return response

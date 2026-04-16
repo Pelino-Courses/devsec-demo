@@ -1,6 +1,9 @@
 {% extends "tresor/base.html" %}
 {% block title %}{{ target_user.username }} — Profile{% endblock %}
 {% block content %}
+{% if target_user.profile.avatar %}
+<img src="{{ target_user.profile.avatar.url }}" alt="Avatar" style="width:80px;height:80px;object-fit:cover;border-radius:50%;display:block;margin-bottom:10px;">
+{% endif %}
 <h2>{{ target_user.get_full_name|default:target_user.username }}</h2>
 <p><strong>Username:</strong> {{ target_user.username }}</p>
 <p><strong>Email:</strong> {{ target_user.email }}</p>
