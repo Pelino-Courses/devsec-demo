@@ -1,3 +1,4 @@
+import os
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User, Group
@@ -435,3 +436,51 @@ class BruteForceProtectionTests(TestCase):
         })
         self.assertRedirects(response, reverse('tresor:dashboard'))
         self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+
+from django.conf import settings as django_settings
+
+
+class SecuritySettingsTests(TestCase):
+    def test_debug_is_boolean(self):
+        self.assertIsInstance(django_settings.DEBUG, bool)
+
+    def test_secret_key_is_set(self):
+        self.assertTrue(django_settings.SECRET_KEY)
+
+    def test_allowed_hosts_is_list(self):
+        self.assertIsInstance(django_settings.ALLOWED_HOSTS, list)
+
+    def test_session_cookie_httponly(self):
+        self.assertTrue(django_settings.SESSION_COOKIE_HTTPONLY)
+
+    def test_session_cookie_samesite(self):
+        self.assertIn(django_settings.SESSION_COOKIE_SAMESITE, ('Lax', 'Strict'))
+
+    def test_csrf_cookie_httponly(self):
+        self.assertTrue(django_settings.CSRF_COOKIE_HTTPONLY)
+
+    def test_x_frame_options_deny(self):
+        self.assertEqual(django_settings.X_FRAME_OPTIONS, 'DENY')
+
+    def test_content_type_nosniff(self):
+        self.assertTrue(django_settings.SECURE_CONTENT_TYPE_NOSNIFF)
+
+    def test_password_reset_timeout_within_one_hour(self):
+        self.assertLessEqual(django_settings.PASSWORD_RESET_TIMEOUT, 3600)
+
+    def test_session_cookie_secure_when_not_debug(self):
+        debug_from_env = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+        self.assertEqual(django_settings.SESSION_COOKIE_SECURE, not debug_from_env)
+
+    def test_csrf_cookie_secure_when_not_debug(self):
+        debug_from_env = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
+        self.assertEqual(django_settings.CSRF_COOKIE_SECURE, not debug_from_env)
+
+    def test_login_page_still_loads(self):
+        response = self.client.get(reverse('tresor:login'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_register_page_still_loads(self):
+        response = self.client.get(reverse('tresor:register'))
+        self.assertEqual(response.status_code, 200)
