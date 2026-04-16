@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Profile</title>
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function updateDisplayName() {
+            const displayName = document.getElementById('display_name_input').value;
+            const csrftoken = getCookie('csrftoken'); // FIXED: Correctly retrieving CSRF token
+
+            const response = await fetch("{% url 'update_display_name' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrftoken // FIXED: Including CSRF token in the request header
+                },
+                body: `display_name=${encodeURIComponent(displayName)}`
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                document.getElementById('current_display_name').innerText = result.display_name;
+                alert('Display name updated successfully!');
+            } else {
+                alert('Update failed: ' + (result.message || 'CSRF Verification Failed'));
+            }
+        }
+    </script>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        input { padding: 8px; width: 200px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Profile</h1>
+    <div class="card">
+        <p>Username: {{ profile.user.username }}</p>
+        <p>Current Display Name: <span id="current_display_name">{{ profile.display_name|default:"Not set" }}</span></p>
+        
+        <hr>
+        <h3>Update Display Name</h3>
+        <input type="text" id="display_name_input" value="{{ profile.display_name }}">
+        <button onclick="updateDisplayName()">Update via AJAX</button>
+    </div>
+    
+    <p><a href="{% url 'logout' %}">Logout</a></p>
+</body>
+</html>
