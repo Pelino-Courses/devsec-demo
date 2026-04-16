@@ -1,0 +1,14 @@
+{% extends "igihozo/base.html" %}
+
+{% block title %}Logged Out | Igihozo Auth Service{% endblock %}
+
+{% block content %}
+<section class="panel auth-panel">
+    <div class="panel-heading">
+        <p class="eyebrow">Session ended</p>
+        <h1>You have been signed out</h1>
+        <p>Your authenticated session has ended successfully.</p>
+    </div>
+    <a class="button primary full-width" href="{% url 'igihozo:login' %}">Sign in again</a>
+</section>
+{% endblock %}

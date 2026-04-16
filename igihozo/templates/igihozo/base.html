@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}User Authentication Service{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'igihozo/styles.css' %}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="site-header">
+            <a class="brand" href="{% url 'igihozo:home' %}">
+                <span class="brand-mark">UAS</span>
+                <span>
+                    <strong>Igihozo Auth Service</strong>
+                    <small>Secure Django authentication workflow</small>
+                </span>
+            </a>
+            <nav class="site-nav">
+                <a href="{% url 'igihozo:home' %}">Home</a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'igihozo:account' %}">Account</a>
+                    {% if perms.igihozo.view_privileged_dashboard or user.is_staff or user.is_superuser %}
+                        <a href="{% url 'igihozo:privileged_dashboard' %}">Privileged</a>
+                    {% endif %}
+                    <a href="{% url 'igihozo:password_change' %}">Password</a>
+                    <form method="post" action="{% url 'igihozo:logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="nav-button">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'igihozo:login' %}">Login</a>
+                    <a class="nav-cta" href="{% url 'igihozo:register' %}">Register</a>
+                {% endif %}
+            </nav>
+        </header>
+
+        <main class="content">
+            {% if messages %}
+                <div class="message-stack">
+                    {% for message in messages %}
+                        <div class="message {{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>
