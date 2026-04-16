@@ -1,0 +1,194 @@
+{% extends 'asher_ndizeye/base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --bg-body: #354555;
+        --white: #d0e8f7;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+    }
+
+    /* FIX: This hides the old "red circled" links if they are inside a header/nav in your base.html */
+    /* Adjust the selector if your base.html uses a different tag like 'header' or '.top-nav' */
+    nav:not(.new-nav), .old-navbar, header:not(.nav-container) {
+        display: none !important;
+    }
+
+    body {
+        background-color: var(--bg-body);
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* ===== NEW WORKING NAVBAR (Purple Design) ===== */
+    .nav-container {
+        background: var(--white);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        display: block !important; /* Ensure this one stays visible */
+    }
+
+    .navbar-inner {
+        max-width: 1000px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+    }
+
+    .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: var(--primary);
+        text-decoration: none;
+    }
+
+    .nav-menu {
+        display: flex;
+        gap: 2rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .nav-link {
+        text-decoration: none;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: 0.2s;
+    }
+
+    .nav-link:hover {
+        color: var(--primary);
+    }
+
+    .nav-link.active {
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 4px;
+    }
+
+    .nav-link.logout-link {
+        color: #ef4444;
+    }
+
+    .nav-link.logout-link:hover {
+        color: #b91c1c;
+    }
+
+    /* ===== DASHBOARD CARD ===== */
+    .main-content {
+        max-width: 800px;
+        margin: 4rem auto;
+        padding: 0 1rem;
+    }
+
+    .welcome-card {
+        background: var(--white);
+        border-radius: 24px;
+        padding: 3.5rem 2rem;
+        text-align: center;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .avatar-circle {
+        width: 90px;
+        height: 90px;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        margin: 0 auto 1.5rem;
+        font-weight: 700;
+        box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+    }
+
+    .btn-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 2.5rem;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .action-btn {
+        padding: 12px 20px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        border: 1px solid #e2e8f0;
+        color: var(--text-main);
+        transition: 0.3s;
+    }
+
+    .action-btn:hover {
+        background: #f8fafc;
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+
+    .logout-full {
+        grid-column: span 2;
+        background: #fff1f2;
+        color: #e11d48;
+        border: none;
+    }
+
+    .logout-full:hover {
+        background: #ffe4e6;
+        color: #be123c;
+    }
+</style>
+
+<div class="nav-container new-nav">
+    <div class="navbar-inner">
+        <a href="{% url 'dashboard' %}" class="nav-brand">
+            <span>🎓 StudentPortal</span>
+        </a>
+        
+        <ul class="nav-menu">
+            <li><a href="{% url 'dashboard' %}" class="nav-link active">Dashboard</a></li>
+            <li><a href="{% url 'profile' %}" class="nav-link">Profile</a></li>
+            <li><a href="{% url 'change_password' %}" class="nav-link">Security</a></li>
+            <li><a href="{% url 'logout' %}" class="nav-link logout-link">Logout</a></li>
+        </ul>
+    </div>
+</div>
+
+<main class="main-content">
+    <div class="welcome-card">
+        <div class="avatar-circle">
+            {{ user.username|slice:":1"|upper }}
+        </div>
+        
+        <h1 style="color: var(--text-main); font-size: 2.5rem; margin-bottom: 0.5rem;">
+            Hi, {{ user.first_name|default:user.username }}!
+        </h1>
+        <p style="color: var(--text-muted); font-size: 1.1rem;">
+            You are logged in as <strong>{{ user.email|default:user.username }}</strong>
+        </p>
+
+        <div class="btn-grid">
+            <a href="{% url 'profile' %}" class="action-btn">Edit Profile</a>
+            <a href="{% url 'change_password' %}" class="action-btn">Update Password</a>
+            <a href="{% url 'logout' %}" class="action-btn logout-full">Log Out</a>
+        </div>
+    </div>
+</main>
+{% endblock %}
