@@ -1,0 +1,85 @@
+{% extends "olivier/base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Header Section -->
+            <div class="glass-card p-4 mb-4 animate-fade-in">
+                <div class="d-flex justify-content-between align-items-center mb-0">
+                    <div>
+                        <h2 class="h3 mb-1">Your Secure Documents</h2>
+                        <p class="text-muted small mb-0">Manage and protect your private documentation.</p>
+                    </div>
+                    <a href="{% url 'Munyabugingo:upload_document' %}" class="btn btn-primary d-flex align-items-center">
+                        <i class="fas fa-upload me-2"></i> Upload New
+                    </a>
+                </div>
+            </div>
+
+            <!-- Documents List -->
+            <div class="glass-card p-0 overflow-hidden animate-slide-up">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-glass-darker">
+                        <tr>
+                            <th class="ps-4">Title</th>
+                            <th>Uploaded</th>
+                            <th>Description</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="d-flex align-items-center">
+                                    <i class="far fa-file-pdf me-3 text-danger"></i>
+                                    <strong>{{ doc.title }}</strong>
+                                </span>
+                            </td>
+                            <td>{{ doc.uploaded_at|date:"M d, Y" }}</td>
+                            <td class="text-muted small">{{ doc.description|truncatechars:50 }}</td>
+                            <td class="text-end pe-4">
+                                <a href="{% url 'Munyabugingo:download_document' doc.pk %}" class="btn btn-sm btn-outline-light">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
+                                    <p>No documents found. Start by uploading one!</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .bg-glass-darker {
+        background: rgba(0, 0, 0, 0.2);
+    }
+    .table-hover tbody tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .table td, .table th {
+        border-color: rgba(255, 255, 255, 0.05);
+        color: #e0e0e0;
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
