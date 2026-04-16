@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'aline',  # Our authentication app
 ]
 
 MIDDLEWARE = [
@@ -119,3 +120,40 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Authentication and redirection settings
+LOGIN_URL = 'aline:login'  # Redirect to login if not authenticated
+LOGIN_REDIRECT_URL = 'aline:dashboard'  # After login, go to dashboard
+LOGOUT_REDIRECT_URL = 'aline:home'  # After logout, go to home
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Email configuration for development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'webmaster@localhost'
+
+# Audit Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '[{asctime}] AUDIT {levelname}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console_audit': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+    },
+    'loggers': {
+        'aline.audit': {
+            'handlers': ['console_audit'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
