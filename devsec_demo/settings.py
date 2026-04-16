@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+DEBUG = os.environ.get('DJANGO_DEBUG') == 'True'
 
 ALLOWED_HOSTS = []
 
@@ -41,6 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # User Authentication Service
+    'mupenz_fulgence',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +68,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # RBAC: injects user_role, is_instructor, is_staff_member, is_admin
+                'mupenz_fulgence.context_processors.user_roles',
             ],
         },
     },
@@ -119,3 +124,140 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ── Media files (user uploads) ─────────────────────────────────────────────
+# MEDIA_ROOT is the filesystem directory where uploaded files are stored.
+# MEDIA_URL is the URL prefix used to serve PUBLIC media files (avatars).
+#
+# SECURITY NOTES:
+#   • Documents are stored under MEDIA_ROOT/documents/ but are NOT served via
+#     MEDIA_URL.  They must be accessed ONLY via DocumentServeView, which
+#     enforces per-user ownership checks.
+#   • In production, configure your web server (Nginx / Apache) to serve
+#     MEDIA_ROOT/avatars/ directly but deny direct access to
+#     MEDIA_ROOT/documents/ — all document requests should proxy through Django.
+#   • Never set MEDIA_ROOT inside a directory served as STATIC_ROOT.
+MEDIA_URL  = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ── Upload size limits ─────────────────────────────────────────────────────
+# Django's in-memory upload threshold — files larger than this are written to
+# a temporary file on disk instead of being held in RAM.  This is NOT a
+# security limit; the per-type size limits are enforced in validators.py.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024   # 2 MB in-memory threshold
+# Cap the total size of a single multipart POST body.  This prevents a
+# client from sending an unbounded request body before Django reads it.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB max request body
+
+# ── Authentication routing ─────────────────────────────────────────────────
+# Where to send users after a successful login / logout,
+# and where LoginRequiredMixin redirects unauthenticated requests.
+LOGIN_REDIRECT_URL = '/auth/'
+LOGOUT_REDIRECT_URL = '/auth/login/'
+LOGIN_URL = '/auth/login/'
+
+# ── Cache ──────────────────────────────────────────────────────────────────
+# Development default: in-process LocMemCache (no external server needed).
+# For production set DJANGO_CACHE_BACKEND (e.g. django_redis.cache.RedisCache)
+# and DJANGO_CACHE_LOCATION (e.g. redis://127.0.0.1:6379/1).
+# Multi-process or multi-server deployments MUST use a shared backend
+# (Redis / Memcached) so that lockout state is visible across all workers.
+CACHES = {
+    'default': {
+        'BACKEND': os.environ.get(
+            'DJANGO_CACHE_BACKEND',
+            'django.core.cache.backends.locmem.LocMemCache',
+        ),
+        'LOCATION': os.environ.get('DJANGO_CACHE_LOCATION', 'mf-auth-cache'),
+    }
+}
+
+# ── Login brute-force protection ──────────────────────────────────────────
+# Maximum consecutive failed login attempts before an account is locked.
+LOGIN_MAX_ATTEMPTS = int(os.environ.get('LOGIN_MAX_ATTEMPTS', 5))
+# Seconds the account stays locked after reaching the threshold.
+LOGIN_LOCKOUT_DURATION = int(os.environ.get('LOGIN_LOCKOUT_DURATION', 900))   # 15 min
+# Rolling window (seconds) in which failures are counted.
+LOGIN_ATTEMPT_WINDOW = int(os.environ.get('LOGIN_ATTEMPT_WINDOW', 900))       # 15 min
+
+# ── Email ──────────────────────────────────────────────────────────────────
+# Development default: print emails to the console (no SMTP server needed).
+# In production set DJANGO_EMAIL_BACKEND to an SMTP or transactional backend
+# and supply DJANGO_DEFAULT_FROM_EMAIL with a deliverable address.
+EMAIL_BACKEND = os.environ.get(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@mf-auth.local')
+
+# ── Password reset token validity ─────────────────────────────────────────
+# Number of seconds a password-reset link remains valid (default Django: 3 days).
+# Reducing to 1 hour limits the window during which an intercepted link is
+# exploitable.  The token is also single-use — it becomes invalid the moment
+# the password is changed (because the HMAC input includes the password hash).
+PASSWORD_RESET_TIMEOUT = 3600  # 1 hour
+
+# ── Audit logging ──────────────────────────────────────────────────────────
+# All security-relevant events are emitted on the 'mupenz_fulgence.audit'
+# logger via mupenz_fulgence.audit_logger.log_event().
+#
+# Development default: records go to both the console (stdout) and a
+# rotating log file at logs/audit.log.
+#
+# Production guidance:
+#   • Set DJANGO_LOG_LEVEL to 'INFO' in the environment.
+#   • Redirect 'mupenz_fulgence.audit' to syslog, a SIEM, or a log
+#     aggregation service (ELK, CloudWatch, Splunk) by overriding the
+#     handlers list in your deployment-specific settings file.
+#   • Never disable propagate=False — it prevents audit records from
+#     being swallowed or duplicated by the root logger.
+#
+# Sensitive-data policy (enforced in audit_logger.py, verified by tests):
+#   ✗ Raw passwords, password hashes, reset tokens, session cookies
+#   ✓ user_id, username, IP address, event type, safe metadata
+
+_LOG_DIR = BASE_DIR / 'logs'
+_LOG_DIR.mkdir(exist_ok=True)          # Create on first run; no-op if present
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    'formatters': {
+        # Compact, human-readable format: timestamp [AUDIT] key=value ...
+        'audit': {
+            'format': '%(asctime)s [AUDIT] %(message)s',
+            'datefmt': '%Y-%m-%dT%H:%M:%SZ',
+        },
+    },
+
+    'handlers': {
+        # Console handler — always active; useful in development and in
+        # containerised deployments where stdout is captured by the runtime.
+        'audit_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+        # Rotating file handler — keeps up to 5 × 10 MB files.
+        # Rotate on size rather than time to prevent unbounded disk growth.
+        'audit_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(_LOG_DIR / 'audit.log'),
+            'maxBytes': 10 * 1024 * 1024,   # 10 MB per file
+            'backupCount': 5,                # audit.log + audit.log.1 … .5
+            'formatter': 'audit',
+            'encoding': 'utf-8',
+        },
+    },
+
+    'loggers': {
+        # Route ALL audit events to both handlers.
+        # propagate=False prevents records from bubbling up to the root
+        # logger (which might have a different level or handlers).
+        'mupenz_fulgence.audit': {
+            'handlers': ['audit_console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
