@@ -1,0 +1,57 @@
+{% extends "apophia/base.html" %}
+
+{% block title %}Staff Directory - Apophia{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>Staff Directory</h1>
+        <span style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 600;">
+            Privileged Access
+        </span>
+    </div>
+
+    <p style="color: var(--text-muted); margin-bottom: 2rem;">
+        You are viewing the restricted staff directory. This view is only available to users with <code>is_staff</code> or <code>is_superuser</code> status.
+    </p>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+            <thead>
+                <tr style="text-align: left; border-bottom: 1px solid var(--border-color);">
+                    <th style="padding: 1rem;">Username</th>
+                    <th style="padding: 1rem;">Email</th>
+                    <th style="padding: 1rem;">Location</th>
+                    <th style="padding: 1rem;">Date Joined</th>
+                    <th style="padding: 1rem;">Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                    <td style="padding: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary-color); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.8rem;">
+                                {{ user.username|first|upper }}
+                            </div>
+                            {{ user.username }}
+                            {% if user.is_staff %}
+                                <span title="Staff Member" style="color: #fbbf24;">🛡️</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td style="padding: 1rem; color: var(--text-muted);">{{ user.email|default:"N/A" }}</td>
+                    <td style="padding: 1rem; color: var(--text-muted);">{{ user.profile.location|default:"-" }}</td>
+                    <td style="padding: 1rem; font-size: 0.875rem;">{{ user.date_joined|date:"M d, Y" }}</td>
+                    <td style="padding: 1rem; font-size: 0.875rem;">{{ user.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="padding: 2rem; text-align: center; color: var(--text-muted);">No users found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
