@@ -1,0 +1,21 @@
+{% extends 'ndayishimiye/base.html' %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<h2>My Profile</h2>
+<p><strong>Username:</strong> {{ user.username }}</p>
+<p><strong>Email:</strong> {{ user.email }}</p>
+<p><strong>Joined:</strong> {{ user.date_joined }}</p>
+
+<h3>Bio</h3>
+<p>{{ profile.bio }}</p>
+
+<h3>Update Bio</h3>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save Bio</button>
+</form>
+
+<br>
+<a href="{% url 'ndayishimiye:password_change' %}">Change Password</a>
+{% endblock %}

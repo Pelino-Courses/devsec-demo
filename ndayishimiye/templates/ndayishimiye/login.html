@@ -1,0 +1,15 @@
+{% extends 'ndayishimiye/base.html' %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<h2>Login</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+    {% endif %}
+    <button type="submit">Login</button>
+</form>
+<p>No account? <a href="{% url 'ndayishimiye:register' %}">Register</a></p>
+<p><a href="{% url 'ndayishimiye:password_reset' %}">Forgot password?</a></p>
+{% endblock %}

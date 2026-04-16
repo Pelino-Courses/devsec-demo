@@ -1,0 +1,359 @@
+from django.test import TestCase, Client, override_settings
+from django.urls import reverse
+from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from ndayishimiye.models import UserProfile
+
+
+@override_settings(
+    AXES_ENABLED=True,
+    AXES_FAILURE_LIMIT=5,
+    AXES_COOLOFF_TIME=1,
+)
+class UASTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='testuser@example.com',
+            password='TestPass123!'
+        )
+        UserProfile.objects.get_or_create(user=self.user)
+        self.other_user = User.objects.create_user(
+            username='otheruser',
+            password='OtherPass123!'
+        )
+        UserProfile.objects.get_or_create(user=self.other_user)
+        self.staff_user = User.objects.create_user(
+            username='staffuser',
+            password='StaffPass123!',
+            is_staff=True
+        )
+        UserProfile.objects.get_or_create(user=self.staff_user)
+
+    def test_register_page_loads(self):
+        response = self.client.get(reverse('ndayishimiye:register'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_login_page_loads(self):
+        response = self.client.get(reverse('ndayishimiye:login'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_login_success(self):
+        response = self.client.post(reverse('ndayishimiye:login'), {
+            'username': 'testuser',
+            'password': 'TestPass123!'
+        })
+        self.assertRedirects(response, reverse('ndayishimiye:profile'))
+
+    def test_profile_requires_login(self):
+        response = self.client.get(reverse('ndayishimiye:profile'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_logout(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('ndayishimiye:logout'))
+        self.assertRedirects(response, reverse('ndayishimiye:login'))
+
+    def test_home_page_loads(self):
+        response = self.client.get(reverse('ndayishimiye:home'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_staff_dashboard_requires_login(self):
+        response = self.client.get(reverse('ndayishimiye:staff_dashboard'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_normal_user_cannot_access_staff_dashboard(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('ndayishimiye:staff_dashboard'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_staff_user_can_access_staff_dashboard(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(reverse('ndayishimiye:staff_dashboard'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_cannot_access_profile(self):
+        self.client.logout()
+        response = self.client.get(reverse('ndayishimiye:profile'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_user_can_view_own_profile_by_id(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('ndayishimiye:profile_by_id',
+                    kwargs={'user_id': self.user.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_user_cannot_view_other_profile_by_id(self):
+        self.client.force_login(self.user)
+        response = self.client.get(
+            reverse('ndayishimiye:profile_by_id',
+                    kwargs={'user_id': self.other_user.id})
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_staff_can_view_any_profile_by_id(self):
+        self.client.force_login(self.staff_user)
+        response = self.client.get(
+            reverse('ndayishimiye:profile_by_id',
+                    kwargs={'user_id': self.user.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_anonymous_cannot_view_profile_by_id(self):
+        self.client.logout()
+        response = self.client.get(
+            reverse('ndayishimiye:profile_by_id',
+                    kwargs={'user_id': self.user.id})
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_password_reset_page_loads(self):
+        response = self.client.get(reverse('ndayishimiye:password_reset'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_password_reset_done_page_loads(self):
+        response = self.client.get(reverse('ndayishimiye:password_reset_done'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_password_reset_with_valid_email(self):
+        response = self.client.post(reverse('ndayishimiye:password_reset'), {
+            'email': 'testuser@example.com'
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_password_reset_with_invalid_email(self):
+        response = self.client.post(reverse('ndayishimiye:password_reset'), {
+            'email': 'nonexistent@example.com'
+        })
+        self.assertEqual(response.status_code, 302)
+
+    def test_password_reset_complete_page_loads(self):
+        response = self.client.get(
+            reverse('ndayishimiye:password_reset_complete')
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_login_lockout_after_too_many_attempts(self):
+        for i in range(5):
+            self.client.post(reverse('ndayishimiye:login'), {
+                'username': 'testuser',
+                'password': 'WrongPassword!'
+            })
+        response = self.client.post(reverse('ndayishimiye:login'), {
+            'username': 'testuser',
+            'password': 'WrongPassword!'
+        })
+        self.assertIn(response.status_code, [403, 429])
+
+    def test_successful_login_not_blocked(self):
+        response = self.client.post(reverse('ndayishimiye:login'), {
+            'username': 'testuser',
+            'password': 'TestPass123!'
+        })
+        self.assertRedirects(response, reverse('ndayishimiye:profile'))
+
+    def test_profile_update_requires_csrf(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+        response = csrf_client.post(
+            reverse('ndayishimiye:profile_update'),
+            {'email': 'newemail@example.com'}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_profile_update_works_with_csrf(self):
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse('ndayishimiye:profile_update'),
+            {'email': 'newemail@example.com'}
+        )
+        self.assertRedirects(response, reverse('ndayishimiye:profile'))
+
+    def test_register_post_requires_csrf(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post(reverse('ndayishimiye:register'), {
+            'username': 'newuser',
+            'email': 'new@example.com',
+            'password1': 'NewPass123!',
+            'password2': 'NewPass123!'
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_login_post_requires_csrf(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post(reverse('ndayishimiye:login'), {
+            'username': 'testuser',
+            'password': 'TestPass123!'
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_login_safe_next_redirect(self):
+        response = self.client.post(reverse('ndayishimiye:login'), {
+            'username': 'testuser',
+            'password': 'TestPass123!',
+            'next': '/ndayishimiye/profile/',
+        })
+        self.assertRedirects(response, '/ndayishimiye/profile/')
+
+    def test_login_unsafe_next_redirect_ignored(self):
+        response = self.client.post(reverse('ndayishimiye:login'), {
+            'username': 'testuser',
+            'password': 'TestPass123!',
+            'next': 'https://evil.com',
+        })
+        self.assertRedirects(response, reverse('ndayishimiye:profile'))
+
+    def test_register_unsafe_next_redirect_ignored(self):
+        response = self.client.post(reverse('ndayishimiye:register'), {
+            'username': 'newuser2',
+            'email': 'new2@example.com',
+            'password1': 'NewPass123!',
+            'password2': 'NewPass123!',
+            'next': 'https://evil.com',
+        })
+        self.assertRedirects(response, reverse('ndayishimiye:profile'))
+
+    def test_login_success_is_logged(self):
+        with self.assertLogs('ndayishimiye.audit', level='INFO') as cm:
+            self.client.post(reverse('ndayishimiye:login'), {
+                'username': 'testuser',
+                'password': 'TestPass123!'
+            })
+        self.assertTrue(any('LOGIN_SUCCESS' in msg for msg in cm.output))
+
+    def test_login_failure_is_logged(self):
+        with self.assertLogs('ndayishimiye.audit', level='WARNING') as cm:
+            self.client.post(reverse('ndayishimiye:login'), {
+                'username': 'testuser',
+                'password': 'WrongPassword!'
+            })
+        self.assertTrue(any('LOGIN_FAILURE' in msg for msg in cm.output))
+
+    def test_register_success_is_logged(self):
+        with self.assertLogs('ndayishimiye.audit', level='INFO') as cm:
+            self.client.post(reverse('ndayishimiye:register'), {
+                'username': 'newuser3',
+                'email': 'new3@example.com',
+                'password1': 'NewPass123!',
+                'password2': 'NewPass123!'
+            })
+        self.assertTrue(any('REGISTER_SUCCESS' in msg for msg in cm.output))
+
+    def test_logout_is_logged(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('ndayishimiye.audit', level='INFO') as cm:
+            self.client.get(reverse('ndayishimiye:logout'))
+        self.assertTrue(any('LOGOUT' in msg for msg in cm.output))
+
+    def test_password_never_in_logs(self):
+        with self.assertLogs('ndayishimiye.audit', level='INFO') as cm:
+            self.client.post(reverse('ndayishimiye:login'), {
+                'username': 'testuser',
+                'password': 'TestPass123!'
+            })
+        for msg in cm.output:
+            self.assertNotIn('TestPass123!', msg)
+
+    def test_xss_script_is_escaped_in_bio(self):
+        self.client.force_login(self.user)
+        xss_payload = '<script>alert("xss")</script>'
+        self.client.post(reverse('ndayishimiye:profile'), {
+            'bio': xss_payload
+        })
+        response = self.client.get(reverse('ndayishimiye:profile'))
+        self.assertNotIn(xss_payload, response.content.decode())
+        self.assertIn('&lt;script&gt;', response.content.decode())
+
+    def test_normal_bio_renders_correctly(self):
+        self.client.force_login(self.user)
+        self.client.post(reverse('ndayishimiye:profile'), {
+            'bio': 'I love Django and security!'
+        })
+        response = self.client.get(reverse('ndayishimiye:profile'))
+        self.assertIn('I love Django and security!', response.content.decode())
+
+    def test_xss_img_tag_is_escaped(self):
+        self.client.force_login(self.user)
+        xss_payload = '<img src=x onerror=alert(1)>'
+        self.client.post(reverse('ndayishimiye:profile'), {
+            'bio': xss_payload
+        })
+        response = self.client.get(reverse('ndayishimiye:profile'))
+        self.assertNotIn(xss_payload, response.content.decode())
+
+    def test_avatar_upload_page_loads(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('ndayishimiye:upload_avatar'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_document_upload_page_loads(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('ndayishimiye:upload_document'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_avatar_extension_rejected(self):
+        self.client.force_login(self.user)
+        bad_file = SimpleUploadedFile(
+            'malware.exe',
+            b'fake content',
+            content_type='application/octet-stream'
+        )
+        response = self.client.post(
+            reverse('ndayishimiye:upload_avatar'),
+            {'avatar': bad_file}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.profile_ext.avatar)
+
+    def test_invalid_document_extension_rejected(self):
+        self.client.force_login(self.user)
+        bad_file = SimpleUploadedFile(
+            'script.php',
+            b'<?php echo "hack"; ?>',
+            content_type='text/php'
+        )
+        response = self.client.post(
+            reverse('ndayishimiye:upload_document'),
+            {'document': bad_file}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.profile_ext.avatar)
+
+    def test_avatar_upload_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('ndayishimiye:upload_avatar'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_document_upload_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('ndayishimiye:upload_document'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_security_content_type_nosniff(self):
+        from django.conf import settings
+        self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
+
+    def test_x_frame_options_deny(self):
+        from django.conf import settings
+        self.assertEqual(settings.X_FRAME_OPTIONS, 'DENY')
+
+    def test_session_cookie_httponly(self):
+        from django.conf import settings
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+
+    def test_csrf_cookie_httponly(self):
+        from django.conf import settings
+        self.assertTrue(settings.CSRF_COOKIE_HTTPONLY)
+
+    def test_session_cookie_samesite(self):
+        from django.conf import settings
+        self.assertEqual(settings.SESSION_COOKIE_SAMESITE, 'Lax')
+
+    def test_secret_key_not_hardcoded(self):
+        from django.conf import settings
+        self.assertNotIn('insecure', settings.SECRET_KEY.lower())
+        self.assertGreater(len(settings.SECRET_KEY), 20)
