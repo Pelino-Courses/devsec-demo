@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 min-h-screen">
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+    
+    <div class="relative min-h-screen flex flex-col">
+        <header class="bg-white/10 backdrop-blur-xl border-b border-white/20">
+            <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-white font-bold text-xl">User Management</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="{% url 'admin_dashboard' %}" class="text-gray-300 hover:text-white transition-colors">Dashboard</a>
+                    <a href="{% url 'profile' %}" class="text-gray-300 hover:text-white transition-colors">Profile</a>
+                    <a href="{% url 'logout' %}" class="text-gray-300 hover:text-white transition-colors">Logout</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4">
+            <div class="max-w-6xl mx-auto">
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                    <h2 class="text-white text-xl font-bold mb-4">All Users</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-white/20">
+                                    <th class="text-gray-400 pb-3">Username</th>
+                                    <th class="text-gray-400 pb-3">Email</th>
+                                    <th class="text-gray-400 pb-3">Role</th>
+                                    <th class="text-gray-400 pb-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for profile in profiles %}
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 text-white">{{ profile.user.username }}</td>
+                                    <td class="py-3 text-gray-300">{{ profile.user.email }}</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 rounded text-sm {% if profile.role == 'admin' %}bg-red-500/20 text-red-400{% elif profile.role == 'staff' %}bg-orange-500/20 text-orange-400{% elif profile.role == 'instructor' %}bg-purple-500/20 text-purple-400{% else %}bg-green-500/20 text-green-400{% endif %}">
+                                            {{ profile.get_role_display }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3">
+                                        <a href="{% url 'change_user_role' profile.user.id %}" class="text-blue-400 hover:text-blue-300 text-sm">Change Role</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
