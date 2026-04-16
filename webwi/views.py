@@ -24,7 +24,7 @@ from django.views.generic import FormView, TemplateView, UpdateView
 
 from . import audit
 from .forms import LoginForm, PasswordResetRequestForm, PasswordResetSetForm, PasswordUpdateForm, ProfileForm, RegistrationForm
-from .models import LoginAttempt, MAX_FAILED_ATTEMPTS, Profile
+from .models import LOCKOUT_DURATION, LoginAttempt, Profile
 
 
 class SafeRedirectMixin:
@@ -110,7 +110,8 @@ class UserLoginView(LoginView):
             form = self.get_form()
             form.add_error(
                 None,
-                f'Too many failed attempts. This account is locked for 15 minutes.',
+                f'Too many failed attempts. This account is locked for '
+                f'{int(LOCKOUT_DURATION.total_seconds() // 60)} minutes.',
             )
             return self.render_to_response(self.get_context_data(form=form))
         return super().post(request, *args, **kwargs)
@@ -165,7 +166,7 @@ class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
     extra_context = {'page_title': 'Password Updated'}
 
 
-class ProfileView(OwnershipRequiredMixin, UpdateView):
+class ProfileView(LoginRequiredMixin, UpdateView):
     model = Profile
     form_class = ProfileForm
     template_name = 'webwi/profile.html'
