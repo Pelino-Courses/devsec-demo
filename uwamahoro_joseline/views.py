@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 
 from django.contrib import messages
@@ -17,6 +18,11 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from .decorators import instructor_required
 from .forms import RegistrationForm
 from .models import Profile, LoginAttempt
+
+# Dedicated audit logger — configured in settings.LOGGING.
+# All records use structured key=value pairs for easy grep/parsing.
+# NEVER log raw passwords, tokens, or session keys here.
+audit_log = logging.getLogger("uwamahoro_joseline.audit")
 
 
 # ── Brute-Force Protection Utilities ──────────────────────────────────────────
@@ -173,6 +179,11 @@ def register_view(request):
             user = form.save()
             Profile.objects.create(user=user)
             login(request, user)
+            audit_log.info(
+                "USER_REGISTERED username=%s ip=%s",
+                user.username,
+                get_client_ip(request),
+            )
             messages.success(request, "Registration successful. Welcome!")
             next_url = request.POST.get("next") or request.GET.get("next", "")
             if next_url and url_has_allowed_host_and_scheme(
@@ -207,6 +218,13 @@ def login_view(request):
         is_throttled, seconds_remaining, failed_attempts = get_throttle_status(username)
         if is_throttled:
             minutes_remaining = (seconds_remaining + 59) // 60  # Round up
+            audit_log.warning(
+                "LOGIN_THROTTLED username=%s ip=%s attempts=%d seconds_remaining=%d",
+                username,
+                get_client_ip(request),
+                failed_attempts,
+                seconds_remaining,
+            )
             context = {
                 "throttle_error": True,
                 "username": username,
@@ -216,14 +234,18 @@ def login_view(request):
                 "next": request.GET.get("next", ""),
             }
             return render(request, "uwamahoro_joseline/login.html", context, status=429)
-        
+
         # Process login
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            # Record successful login
             record_login_attempt(request, username, is_successful=True)
             login(request, user)
+            audit_log.info(
+                "LOGIN_SUCCESS username=%s ip=%s",
+                user.username,
+                get_client_ip(request),
+            )
             messages.success(request, f"Welcome back, {user.username}!")
             next_url = request.POST.get("next") or request.GET.get("next", "")
             if next_url and url_has_allowed_host_and_scheme(
@@ -232,8 +254,12 @@ def login_view(request):
                 return redirect(next_url)
             return redirect("uwamahoro_joseline:dashboard")
         else:
-            # Record failed login attempt
             record_login_attempt(request, username, is_successful=False)
+            audit_log.warning(
+                "LOGIN_FAILED username=%s ip=%s",
+                username,
+                get_client_ip(request),
+            )
             messages.error(request, "Invalid username or password.")
     else:
         form = AuthenticationForm()
@@ -256,6 +282,12 @@ def logout_view(request):
     next_url = request.GET.get("next", "")
     if request.method == "POST":
         next_url = request.POST.get("next") or request.GET.get("next", "")
+        username = request.user.username if request.user.is_authenticated else "anonymous"
+        audit_log.info(
+            "LOGOUT username=%s ip=%s",
+            username,
+            get_client_ip(request),
+        )
         logout(request)
         messages.info(request, "You have been logged out.")
         if next_url and url_has_allowed_host_and_scheme(
@@ -361,8 +393,19 @@ def password_change_view(request):
         if form.is_valid():
             user = form.save()
             update_session_auth_hash(request, user)
+            audit_log.info(
+                "PASSWORD_CHANGED username=%s ip=%s",
+                user.username,
+                get_client_ip(request),
+            )
             messages.success(request, "Your password was updated successfully.")
             return redirect("uwamahoro_joseline:password_change_done")
+        else:
+            audit_log.warning(
+                "PASSWORD_CHANGE_FAILED username=%s ip=%s",
+                request.user.username,
+                get_client_ip(request),
+            )
     else:
         form = PasswordChangeForm(request.user)
     return render(request, "uwamahoro_joseline/password_change.html", {"form": form})
@@ -420,9 +463,21 @@ def promote_user_view(request, user_id):
 
     if action == "promote":
         target_user.groups.add(instructor_group)
+        audit_log.info(
+            "ROLE_PROMOTED target=%s by=%s ip=%s",
+            target_user.username,
+            request.user.username,
+            get_client_ip(request),
+        )
         messages.success(request, f"{target_user.username} promoted to Instructor.")
     elif action == "demote":
         target_user.groups.remove(instructor_group)
+        audit_log.info(
+            "ROLE_DEMOTED target=%s by=%s ip=%s",
+            target_user.username,
+            request.user.username,
+            get_client_ip(request),
+        )
         messages.success(request, f"{target_user.username} demoted to Student.")
     else:
         messages.error(request, "Invalid action.")
@@ -452,13 +507,13 @@ class SecurePasswordResetView(PasswordResetView):
     def form_valid(self, form):
         """
         When the password reset form is valid, send the reset email.
-        
-        Django's implementation:
-        - Finds users by email (case-insensitive, may be multiple)
-        - Only sends to active users
-        - Creates secure token using default token generator
-        - Does not distinguish between existing/non-existing emails in response
+
+        Audit note: we log that a reset was requested but NOT the email address
+        itself — logging the email would leak account existence, undermining the
+        user-enumeration protections built into Django's PasswordResetForm.
         """
+        ip = get_client_ip(self.request)
+        audit_log.info("PASSWORD_RESET_REQUESTED ip=%s", ip)
         return super().form_valid(form)
 
 
@@ -492,15 +547,19 @@ class SecurePasswordResetConfirmView(PasswordResetConfirmView):
     
     def form_valid(self, form):
         """
-        When the new password is set successfully.
-        
-        Django's implementation:
-        - Validates password strength
-        - Checks for common weak passwords
-        - Prevents passwords matching username/email
-        - Hashes password with PBKDF2 or configured hasher
+        When the new password is set successfully via password reset link.
+
+        Audit note: the user object is available on the form after validation.
+        We log the username but never any password value.
         """
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        user = form.user
+        audit_log.info(
+            "PASSWORD_RESET_COMPLETED username=%s ip=%s",
+            user.username,
+            get_client_ip(self.request),
+        )
+        return response
 
 
 class SecurePasswordResetCompleteView(PasswordResetCompleteView):

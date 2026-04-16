@@ -1,5 +1,6 @@
 """
-Tests for brute-force protection, CSRF protection, and open redirect prevention.
+Tests for brute-force protection, CSRF protection, open redirect prevention,
+and audit logging.
 
 Tests cover:
 - Normal login behavior and successful authentication
@@ -10,10 +11,12 @@ Tests cover:
 - Throttle status calculation across different time windows
 - CSRF enforcement on the AJAX bio update endpoint
 - Open redirect prevention on logout and register flows
+- Audit log emission for all security-relevant events
+- Verification that no sensitive data (passwords, emails) appears in logs
 """
 
 from django.test import TestCase, Client
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
@@ -695,3 +698,183 @@ class RegisterOpenRedirectTests(TestCase):
         response = self.client.get(f"{self.register_url}?next={safe_next}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["next"], safe_next)
+
+
+# ── Audit Logging Tests ───────────────────────────────────────────────────────
+
+AUDIT_LOGGER = "uwamahoro_joseline.audit"
+
+
+class AuditLoggingTests(TestCase):
+    """
+    Tests verifying that security-relevant events emit the correct audit log records.
+
+    Design note:
+    All records are emitted on the "uwamahoro_joseline.audit" logger so that
+    production deployments can route them to a dedicated sink (file, SIEM, etc.)
+    independently of the general application log.
+
+    Sensitive data that must NEVER appear in logs:
+    - Raw passwords or password hashes
+    - Session keys or CSRF tokens
+    - Email addresses (to avoid leaking account existence via reset endpoint)
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="audituser",
+            email="audit@example.com",
+            password="AuditPass123!",
+        )
+        self.login_url = reverse("uwamahoro_joseline:login")
+        self.logout_url = reverse("uwamahoro_joseline:logout")
+        self.register_url = reverse("uwamahoro_joseline:register")
+        self.password_change_url = reverse("uwamahoro_joseline:password_change")
+
+    # ── Registration ──────────────────────────────────────────────────────────
+
+    def test_registration_emits_user_registered(self):
+        """Successful registration logs USER_REGISTERED with username."""
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.register_url, {
+                "username": "brandnew",
+                "email": "brandnew@example.com",
+                "password1": "NewPass123!",
+                "password2": "NewPass123!",
+            })
+        self.assertTrue(any("USER_REGISTERED" in m for m in log.output))
+        self.assertTrue(any("brandnew" in m for m in log.output))
+
+    def test_registration_log_does_not_contain_password(self):
+        """Registration log must never include the password value."""
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.register_url, {
+                "username": "brandnew2",
+                "email": "brandnew2@example.com",
+                "password1": "NewPass123!",
+                "password2": "NewPass123!",
+            })
+        for message in log.output:
+            self.assertNotIn("NewPass123!", message)
+
+    # ── Login ─────────────────────────────────────────────────────────────────
+
+    def test_successful_login_emits_login_success(self):
+        """Successful login logs LOGIN_SUCCESS with username."""
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.login_url, {
+                "username": "audituser",
+                "password": "AuditPass123!",
+            })
+        self.assertTrue(any("LOGIN_SUCCESS" in m for m in log.output))
+        self.assertTrue(any("audituser" in m for m in log.output))
+
+    def test_failed_login_emits_login_failed(self):
+        """Failed login attempt logs LOGIN_FAILED with username."""
+        with self.assertLogs(AUDIT_LOGGER, level="WARNING") as log:
+            self.client.post(self.login_url, {
+                "username": "audituser",
+                "password": "wrongpassword",
+            })
+        self.assertTrue(any("LOGIN_FAILED" in m for m in log.output))
+        self.assertTrue(any("audituser" in m for m in log.output))
+
+    def test_failed_login_log_does_not_contain_password(self):
+        """Failed login log must never include the attempted password."""
+        with self.assertLogs(AUDIT_LOGGER, level="WARNING") as log:
+            self.client.post(self.login_url, {
+                "username": "audituser",
+                "password": "SuperSecret99!",
+            })
+        for message in log.output:
+            self.assertNotIn("SuperSecret99!", message)
+
+    # ── Logout ────────────────────────────────────────────────────────────────
+
+    def test_logout_emits_logout(self):
+        """Successful logout logs LOGOUT with username."""
+        self.client.login(username="audituser", password="AuditPass123!")
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.logout_url)
+        self.assertTrue(any("LOGOUT" in m for m in log.output))
+        self.assertTrue(any("audituser" in m for m in log.output))
+
+    # ── Password change ───────────────────────────────────────────────────────
+
+    def test_password_change_emits_password_changed(self):
+        """Successful password change logs PASSWORD_CHANGED with username."""
+        self.client.login(username="audituser", password="AuditPass123!")
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.password_change_url, {
+                "old_password": "AuditPass123!",
+                "new_password1": "NewAudit456!",
+                "new_password2": "NewAudit456!",
+            })
+        self.assertTrue(any("PASSWORD_CHANGED" in m for m in log.output))
+        self.assertTrue(any("audituser" in m for m in log.output))
+
+    def test_password_change_log_does_not_contain_password(self):
+        """Password change log must never include any password value."""
+        self.client.login(username="audituser", password="AuditPass123!")
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.password_change_url, {
+                "old_password": "AuditPass123!",
+                "new_password1": "NewAudit456!",
+                "new_password2": "NewAudit456!",
+            })
+        for message in log.output:
+            self.assertNotIn("AuditPass123!", message)
+            self.assertNotIn("NewAudit456!", message)
+
+    def test_failed_password_change_emits_password_change_failed(self):
+        """Wrong old password logs PASSWORD_CHANGE_FAILED."""
+        self.client.login(username="audituser", password="AuditPass123!")
+        with self.assertLogs(AUDIT_LOGGER, level="WARNING") as log:
+            self.client.post(self.password_change_url, {
+                "old_password": "wrong_old_password",
+                "new_password1": "NewAudit456!",
+                "new_password2": "NewAudit456!",
+            })
+        self.assertTrue(any("PASSWORD_CHANGE_FAILED" in m for m in log.output))
+
+    # ── Role changes ──────────────────────────────────────────────────────────
+
+    def test_role_promotion_emits_role_promoted(self):
+        """Promoting a user to Instructor logs ROLE_PROMOTED."""
+        from django.contrib.auth.models import Permission
+        from django.contrib.contenttypes.models import ContentType
+
+        instructor_group, _ = Group.objects.get_or_create(name="Instructor")
+
+        # Give the acting user instructor + manage_users permission
+        ct = ContentType.objects.get_for_model(Profile)
+        perm = Permission.objects.get(content_type=ct, codename="can_manage_users")
+        self.user.groups.add(instructor_group)
+        self.user.user_permissions.add(perm)
+        self.user.save()
+
+        target = User.objects.create_user(username="targetuser", password="TargetPass1!")
+        self.client.login(username="audituser", password="AuditPass123!")
+
+        promote_url = reverse("uwamahoro_joseline:promote_user", kwargs={"user_id": target.pk})
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(promote_url, {"action": "promote"})
+        self.assertTrue(any("ROLE_PROMOTED" in m for m in log.output))
+        self.assertTrue(any("targetuser" in m for m in log.output))
+
+    # ── Password reset ────────────────────────────────────────────────────────
+
+    def test_password_reset_request_emits_log(self):
+        """Submitting the password reset form logs PASSWORD_RESET_REQUESTED."""
+        reset_url = reverse("uwamahoro_joseline:password_reset")
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(reset_url, {"email": "audit@example.com"})
+        self.assertTrue(any("PASSWORD_RESET_REQUESTED" in m for m in log.output))
+
+    def test_password_reset_log_does_not_contain_email(self):
+        """Password reset log must not include the email address."""
+        reset_url = reverse("uwamahoro_joseline:password_reset")
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(reset_url, {"email": "audit@example.com"})
+        for message in log.output:
+            self.assertNotIn("audit@example.com", message)

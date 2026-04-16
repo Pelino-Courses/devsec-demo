@@ -120,3 +120,34 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# ── Audit Logging ─────────────────────────────────────────────────────────────
+# All security-relevant events are emitted on the "uwamahoro_joseline.audit"
+# logger at INFO level.  In production, point the file handler at a path
+# outside the web root and set propagate=False so audit records do not bleed
+# into the general application log.
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "audit": {
+            "format": "[AUDIT] %(asctime)s %(levelname)s %(name)s | %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%SZ",
+        },
+    },
+    "handlers": {
+        "audit_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "audit",
+        },
+    },
+    "loggers": {
+        "uwamahoro_joseline.audit": {
+            "handlers": ["audit_console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
