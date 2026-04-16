@@ -1,0 +1,45 @@
+{% extends 'nkotanyib/base.html' %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 2rem; text-align: center;">Welcome Back</h2>
+    
+    {% if form.errors %}
+        <div class="messages">
+            <li class="error">Your username and password didn't match. Please try again.</li>
+        </div>
+    {% endif %}
+
+    {% if next %}
+        {% if user.is_authenticated %}
+            <div class="messages">
+                <li class="error">Your account doesn't have access to this page. To proceed, please login with an account that has access.</li>
+            </div>
+        {% else %}
+            <div class="messages">
+                <li class="error">Please login to see this page.</li>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="id_username">Username</label>
+            {{ form.username }}
+        </div>
+        <div class="form-group">
+            <label for="id_password">Password</label>
+            {{ form.password }}
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top: 1rem;">Log in</button>
+        <input type="hidden" name="next" value="{{ next }}">
+    </form>
+    
+    <p style="text-align: center; margin-top: 2rem; color: #94a3b8; font-size: 0.9rem;">
+        Don't have an account? <a href="{% url 'register' %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Register here</a>
+    </p>
+</div>
+{% endblock %}
