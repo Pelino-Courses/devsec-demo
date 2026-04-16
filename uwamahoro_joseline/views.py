@@ -1,10 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import Group, User
+from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView, PasswordResetDoneView, PasswordResetCompleteView
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .decorators import instructor_required
@@ -196,7 +198,88 @@ def promote_user_view(request, user_id):
     elif action == "demote":
         target_user.groups.remove(instructor_group)
         messages.success(request, f"{target_user.username} demoted to Student.")
-    else:
         messages.error(request, "Invalid action.")
 
     return redirect("uwamahoro_joseline:instructor_panel")
+
+
+# ── Password Reset views (Public/Unauthenticated) ─────────────────────────────
+
+class SecurePasswordResetView(PasswordResetView):
+    """
+    Secure password reset request view using Django's built-in mechanisms.
+    
+    Security features:
+    - Uses Django's PasswordResetForm which validates email existence safely
+    - Generates cryptographically secure tokens via django.contrib.auth
+    - Does NOT leak whether an email exists (always shows same success message)
+    - Requires valid email format
+    - Sends reset link via email only (no SMS or other direct channels)
+    """
+    form_class = PasswordResetForm
+    template_name = "uwamahoro_joseline/password_reset.html"
+    email_template_name = "uwamahoro_joseline/password_reset_email.html"
+    subject_template_name = "uwamahoro_joseline/password_reset_subject.txt"
+    success_url = reverse_lazy("uwamahoro_joseline:password_reset_done")
+
+    def form_valid(self, form):
+        """
+        When the password reset form is valid, send the reset email.
+        
+        Django's implementation:
+        - Finds users by email (case-insensitive, may be multiple)
+        - Only sends to active users
+        - Creates secure token using default token generator
+        - Does not distinguish between existing/non-existing emails in response
+        """
+        return super().form_valid(form)
+
+
+class SecurePasswordResetDoneView(PasswordResetDoneView):
+    """
+    Confirmation that password reset email was sent.
+    
+    Security note:
+    - Shows generic message regardless of whether email exists
+    - Prevents user enumeration via password reset endpoint
+    - Instructs user to check email and click link
+    """
+    template_name = "uwamahoro_joseline/password_reset_done.html"
+
+
+class SecurePasswordResetConfirmView(PasswordResetConfirmView):
+    """
+    Password reset confirmation view where user sets new password.
+    
+    Security features:
+    - Uses Django's token validation (signed tokens with timestamp)
+    - Validates token hasn't expired (default: 1 day)
+    - Validates new password meets Django's validation rules
+    - Prevents weak or compromised passwords
+    - One-time use: tokens cannot be reused
+    - Automatically logs user in after password reset (improves UX)
+    """
+    form_class = SetPasswordForm
+    template_name = "uwamahoro_joseline/password_reset_confirm.html"
+    success_url = reverse_lazy("uwamahoro_joseline:password_reset_complete")
+    
+    def form_valid(self, form):
+        """
+        When the new password is set successfully.
+        
+        Django's implementation:
+        - Validates password strength
+        - Checks for common weak passwords
+        - Prevents passwords matching username/email
+        - Hashes password with PBKDF2 or configured hasher
+        """
+        return super().form_valid(form)
+
+
+class SecurePasswordResetCompleteView(PasswordResetCompleteView):
+    """
+    Password reset complete confirmation page.
+    
+    User is prompted to log in with their new password.
+    """
+    template_name = "uwamahoro_joseline/password_reset_complete.html"

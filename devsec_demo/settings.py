@@ -122,3 +122,24 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 LOGIN_URL = '/uwamahoro_joseline/login/'
+
+# ── Email Configuration ──────────────────────────────────────────────────────
+# For secure password reset functionality
+
+# Development: Use console backend (emails printed to console)
+# Production: Use SMTP backend with environment variables
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@secureauth.local')
+
+# Password reset token validity period (in seconds)
+# Default: 3 days (259200 seconds) - can be customized via PASSWORD_RESET_TIMEOUT
+PASSWORD_RESET_TIMEOUT = 86400  # 24 hours for maximum security

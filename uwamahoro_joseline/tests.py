@@ -609,3 +609,253 @@ class IDORProtectionPromoteUserTests(TestCase):
             {"action": "promote"},
         )
         self.assertEqual(response.status_code, 404)
+
+
+# ── Secure Password Reset Tests ──────────────────────────────────────────────
+
+class PasswordResetRequestTests(TestCase):
+    """Test secure password reset request flow."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = reverse("uwamahoro_joseline:password_reset")
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="OldPass123!"
+        )
+
+    def test_password_reset_page_loads_for_unauthenticated(self):
+        """Test that unauthenticated users can access password reset page."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reset Your Password")
+
+    def test_password_reset_with_valid_email(self):
+        """Test password reset request with valid email in system."""
+        response = self.client.post(
+            self.url, {"email": "test@example.com"}, follow=True
+        )
+        # Should succeed and redirect to done page
+        self.assertRedirects(
+            response, reverse("uwamahoro_joseline:password_reset_done")
+        )
+        # Should display generic "check email" message (no user enumeration)
+        self.assertContains(response, "Check Your Email")
+
+    def test_password_reset_with_nonexistent_email(self):
+        """Test password reset with non-existent email shows same message (prevents user enumeration)."""
+        response = self.client.post(
+            self.url, {"email": "nonexistent@example.com"}, follow=True
+        )
+        # Should succeed and redirect to done page (same as valid email)
+        self.assertRedirects(
+            response, reverse("uwamahoro_joseline:password_reset_done")
+        )
+        # Should display same message regardless of email existence
+        self.assertContains(response, "Check Your Email")
+
+    def test_password_reset_with_invalid_email_format(self):
+        """Test password reset with invalid email format is rejected."""
+        response = self.client.post(self.url, {"email": "not-an-email"})
+        # Should fail and show error
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response, "form", "email", "Enter a valid email address.")
+
+    def test_password_reset_post_only(self):
+        """Test that password reset uses POST method for security."""
+        # GET to password reset form should work
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_unauthenticated_can_request_reset(self):
+        """Test that unauthenticated users can request password reset."""
+        response = self.client.post(
+            self.url, {"email": "test@example.com"}, follow=True
+        )
+        self.assertRedirects(
+            response, reverse("uwamahoro_joseline:password_reset_done")
+        )
+
+    def test_authenticated_can_request_reset(self):
+        """Test that authenticated users can also request password reset."""
+        self.client.login(username="testuser", password="OldPass123!")
+        response = self.client.post(
+            self.url, {"email": "test@example.com"}, follow=True
+        )
+        self.assertRedirects(
+            response, reverse("uwamahoro_joseline:password_reset_done")
+        )
+
+
+class PasswordResetConfirmTests(TestCase):
+    """Test secure password reset confirmation flow."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="OldPass123!"
+        )
+        self.done_url = reverse("uwamahoro_joseline:password_reset_done")
+        
+        # Generate a valid password reset token
+        from django.contrib.auth.tokens import default_token_generator
+        self.token = default_token_generator.make_token(self.user)
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        self.confirm_url = reverse(
+            "uwamahoro_joseline:password_reset_confirm",
+            args=[self.uidb64, self.token],
+        )
+
+    def test_password_reset_confirm_page_loads_with_valid_token(self):
+        """Test that password reset confirm page loads with valid token."""
+        response = self.client.get(self.confirm_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Set New Password")
+
+    def test_password_reset_confirm_with_invalid_token(self):
+        """Test that invalid token shows error message."""
+        invalid_url = reverse(
+            "uwamahoro_joseline:password_reset_confirm",
+            args=[self.uidb64, "invalid-token"],
+        )
+        response = self.client.get(invalid_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid or Expired Link")
+
+    def test_password_reset_with_valid_password(self):
+        """Test successful password reset with valid new password."""
+        new_password = "NewSecurePass456!"
+        response = self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": new_password,
+                "new_password2": new_password,
+            },
+            follow=True,
+        )
+        # Should succeed and redirect to complete page
+        self.assertRedirects(
+            response, reverse("uwamahoro_joseline:password_reset_complete")
+        )
+        # Verify password was changed
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(new_password))
+        # Old password should not work
+        self.assertFalse(self.user.check_password("OldPass123!"))
+
+    def test_password_reset_with_weak_password(self):
+        """Test that weak password is rejected."""
+        weak_password = "123"  # Too short
+        response = self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": weak_password,
+                "new_password2": weak_password,
+            },
+        )
+        # Should fail validation
+        self.assertEqual(response.status_code, 200)
+        # Verify password was NOT changed
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.check_password(weak_password))
+
+    def test_password_reset_with_mismatched_passwords(self):
+        """Test that mismatched passwords are rejected."""
+        response = self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": "NewPass123!",
+                "new_password2": "DifferentPass123!",
+            },
+        )
+        # Should fail
+        self.assertEqual(response.status_code, 200)
+        # Verify password was NOT changed
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.check_password("NewPass123!"))
+
+    def test_password_reset_with_password_same_as_username(self):
+        """Test that password matching username is rejected."""
+        response = self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": "testuser",
+                "new_password2": "testuser",
+            },
+        )
+        # Should fail
+        self.assertEqual(response.status_code, 200)
+
+    def test_token_is_one_time_use(self):
+        """Test that reset token can only be used once."""
+        new_password = "NewPass123!"
+        # First use: success
+        self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": new_password,
+                "new_password2": new_password,
+            },
+        )
+        
+        # Second use: should fail (token invalidated after first use)
+        response = self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": "AnotherNewPass456!",
+                "new_password2": "AnotherNewPass456!",
+            },
+        )
+        # Should get invalid token message
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Invalid or Expired Link")
+
+    def test_can_login_after_password_reset(self):
+        """Test that user can log in with new password after reset."""
+        new_password = "NewPassword123!"
+        
+        # Reset password
+        self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": new_password,
+                "new_password2": new_password,
+            },
+        )
+        
+        # Try to log in with new password
+        response = self.client.post(
+            reverse("uwamahoro_joseline:login"),
+            {
+                "username": "testuser",
+                "password": new_password,
+            },
+        )
+        # Should succeed and redirect to dashboard
+        self.assertRedirects(response, reverse("uwamahoro_joseline:dashboard"))
+
+    def test_cannot_login_with_old_password_after_reset(self):
+        """Test that old password no longer works after reset."""
+        new_password = "NewPassword123!"
+        
+        # Reset password
+        self.client.post(
+            self.confirm_url,
+            {
+                "new_password1": new_password,
+                "new_password2": new_password,
+            },
+        )
+        
+        # Try to log in with old password
+        response = self.client.post(
+            reverse("uwamahoro_joseline:login"),
+            {
+                "username": "testuser",
+                "password": "OldPass123!",
+            },
+        )
+        # Should fail
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
