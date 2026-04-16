@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #dc3545;
+            font-size: 72px;
+            margin: 0;
+        }
+        .message {
+            color: #666;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        a:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>403</h1>
+        <p class="message">{{ message|default:"You do not have permission to access this resource." }}</p>
+        {% if user.is_authenticated %}
+        <a href="{% url 'profile' %}">Return to Profile</a>
+        {% else %}
+        <a href="{% url 'login' %}">Login</a>
+        {% endif %}
+    </div>
+</body>
+</html>
