@@ -8,31 +8,69 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
+
+Security posture
+----------------
+All security-sensitive values are read from environment variables so that
+secrets never appear in version control.  A .env file is loaded in
+development via python-dotenv; production uses real env vars injected by
+the deployment platform.
+
+Required environment variables (no defaults, startup fails if absent):
+  DJANGO_SECRET_KEY  — cryptographically random string, 50+ chars
+
+Optional environment variables (safe defaults shown):
+  DJANGO_DEBUG          — 'True' to enable debug mode (default: False)
+  DJANGO_ALLOWED_HOSTS  — comma-separated hostnames (default: '' → [] )
+  DJANGO_HTTPS_REDIRECT — 'True' to enable SSL redirect + HSTS (default: False)
+  EMAIL_BACKEND         — dotted path to mail backend
+  DEFAULT_FROM_EMAIL    — sender address for outgoing mail
 """
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# ---------------------------------------------------------------------------
+# Core secrets and deployment mode
+# ---------------------------------------------------------------------------
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+# SECRET_KEY must be provided via environment.  An absent or empty value
+# raises ImproperlyConfigured at startup rather than silently using an
+# insecure fallback — a missing key is always a configuration error.
+_secret_key = os.environ.get('DJANGO_SECRET_KEY', '')
+if not _secret_key:
+    raise ImproperlyConfigured(
+        'DJANGO_SECRET_KEY environment variable is not set. '
+        'Generate one with: python -c "from django.core.management.utils '
+        'import get_random_secret_key; print(get_random_secret_key())"'
+    )
+SECRET_KEY = _secret_key
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+# DEBUG must be explicitly set to the string 'True' to be truthy.
+# Any other value (including absent, 'False', '0', '') means False.
+# This prevents the common mistake where os.environ.get('DJANGO_DEBUG')
+# returns None (falsy) in dev but the string 'False' (truthy!) in prod.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS comes from a comma-separated env var.  An empty string
+# produces an empty list, which Django requires in production (DEBUG=False).
+_raw_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
 
 
+# ---------------------------------------------------------------------------
 # Application definition
+# ---------------------------------------------------------------------------
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -41,6 +79,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'webwi',
 ]
 
 MIDDLEWARE = [
@@ -58,7 +97,7 @@ ROOT_URLCONF = 'devsec_demo.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -73,8 +112,9 @@ TEMPLATES = [
 WSGI_APPLICATION = 'devsec_demo.wsgi.application'
 
 
+# ---------------------------------------------------------------------------
 # Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+# ---------------------------------------------------------------------------
 
 DATABASES = {
     'default': {
@@ -84,8 +124,9 @@ DATABASES = {
 }
 
 
+# ---------------------------------------------------------------------------
 # Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+# ---------------------------------------------------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -103,19 +144,131 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
+# ---------------------------------------------------------------------------
+# Internationalisation
+# ---------------------------------------------------------------------------
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# ---------------------------------------------------------------------------
+# Static and media files
+# ---------------------------------------------------------------------------
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# ---------------------------------------------------------------------------
+# Auth redirect URLs
+# ---------------------------------------------------------------------------
+
+LOGIN_URL = 'webwi:login'
+LOGIN_REDIRECT_URL = 'webwi:dashboard'
+LOGOUT_REDIRECT_URL = 'webwi:login'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ---------------------------------------------------------------------------
+# Email
+# ---------------------------------------------------------------------------
+
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@uas.local')
+
+# Password-reset tokens expire after 1 hour.
+PASSWORD_RESET_TIMEOUT = 3600
+
+
+# ---------------------------------------------------------------------------
+# Cookie security
+#
+# Secure flag: ensures cookies are only transmitted over HTTPS.
+# HttpOnly flag: blocks JavaScript from reading the cookie value,
+#   preventing session token theft via XSS.
+# SameSite=Lax: cookies are sent on same-site navigations and top-level
+#   cross-site GET requests, but not cross-site POST — mitigates CSRF
+#   as a defence-in-depth layer alongside the CSRF middleware.
+# ---------------------------------------------------------------------------
+
+SESSION_COOKIE_SECURE = not DEBUG      # HTTPS-only in production
+SESSION_COOKIE_HTTPONLY = True         # not readable by JavaScript
+SESSION_COOKIE_SAMESITE = 'Lax'        # CSRF mitigation layer
+
+CSRF_COOKIE_SECURE = not DEBUG         # HTTPS-only in production
+CSRF_COOKIE_HTTPONLY = False           # JS must read it to attach as header
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+
+# ---------------------------------------------------------------------------
+# Transport security
+#
+# SSL redirect and HSTS are controlled by a dedicated env var rather than
+# being derived from DEBUG.  This allows DEBUG=False in staging/CI
+# environments that do not terminate TLS, without accidentally enabling
+# HTTPS enforcement and breaking plain-HTTP test clients.
+#
+# Set DJANGO_HTTPS_REDIRECT=True only in production deployments where
+# all traffic arrives over HTTPS.
+#
+# HSTS: instructs browsers to only connect over HTTPS for one year,
+#   including subdomains, and opts into browser preload lists.
+# Content-type nosniff: prevents browsers from MIME-sniffing responses away
+#   from the declared Content-Type, blocking drive-by-download attacks.
+# Referrer policy: limits how much of the current URL is sent in the
+#   Referer header to cross-origin destinations.
+# ---------------------------------------------------------------------------
+
+_https = os.environ.get('DJANGO_HTTPS_REDIRECT', 'False') == 'True'
+
+SECURE_SSL_REDIRECT = _https
+SECURE_HSTS_SECONDS = 31_536_000 if _https else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _https
+SECURE_HSTS_PRELOAD = _https
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# If running behind a trusted reverse proxy that terminates SSL, uncomment
+# and set the header your proxy forwards:
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Clickjacking protection (also provided by XFrameOptionsMiddleware).
+X_FRAME_OPTIONS = 'DENY'
+
+
+# ---------------------------------------------------------------------------
+# Audit logging
+# ---------------------------------------------------------------------------
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '%(asctime)s [AUDIT] %(levelname)s %(message)s',
+            'datefmt': '%Y-%m-%dT%H:%M:%S',
+        },
+    },
+    'handlers': {
+        'audit_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+    },
+    'loggers': {
+        'webwi.audit': {
+            'handlers': ['audit_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
