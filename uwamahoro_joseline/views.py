@@ -159,6 +159,7 @@ def get_throttle_status(username):
 def register_view(request):
     if request.user.is_authenticated:
         return redirect("uwamahoro_joseline:dashboard")
+    next_url = request.GET.get("next", "")
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
@@ -166,10 +167,13 @@ def register_view(request):
             Profile.objects.create(user=user)
             login(request, user)
             messages.success(request, "Registration successful. Welcome!")
+            next_url = request.POST.get("next") or request.GET.get("next", "")
+            if next_url:
+                return redirect(next_url)  # INSECURE: no host validation — any URL accepted
             return redirect("uwamahoro_joseline:dashboard")
     else:
         form = RegistrationForm()
-    return render(request, "uwamahoro_joseline/register.html", {"form": form})
+    return render(request, "uwamahoro_joseline/register.html", {"form": form, "next": next_url})
 
 
 def login_view(request):
@@ -233,11 +237,15 @@ def login_view(request):
 
 
 def logout_view(request):
+    next_url = request.GET.get("next", "")
     if request.method == "POST":
+        next_url = request.POST.get("next") or request.GET.get("next", "")
         logout(request)
         messages.info(request, "You have been logged out.")
+        if next_url:
+            return redirect(next_url)  # INSECURE: no host validation — any URL accepted
         return redirect("uwamahoro_joseline:login")
-    return render(request, "uwamahoro_joseline/logout.html")
+    return render(request, "uwamahoro_joseline/logout.html", {"next": next_url})
 
 
 # ── Student views (authenticated) ────────────────────────────────────────────
