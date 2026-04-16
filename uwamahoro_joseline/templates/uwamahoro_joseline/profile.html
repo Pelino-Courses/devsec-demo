@@ -1,0 +1,78 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>{{ profile.user.username }}'s Profile</h1>
+    <p><strong>Email:</strong> {{ profile.user.email }}</p>
+    <p><strong>Member Since:</strong> {{ profile.created_at|date:"M d, Y" }}</p>
+
+    <div id="bio-section">
+        {# FIX: |safe removed. Django's auto-escaping converts < > " & to HTML entities, #}
+        {# so stored script tags and event handlers are displayed as text, never executed. #}
+        <p><strong>Bio:</strong> <span id="bio-text">{{ profile.bio|default:"No bio provided" }}</span></p>
+    </div>
+
+    {% if profile.user == user %}
+        <div id="bio-editor" style="margin-top:1rem;">
+            <label for="bio-input"><strong>Update Bio:</strong></label><br>
+            <textarea id="bio-input" rows="3" style="width:100%;padding:0.5rem;border:1px solid #ddd;border-radius:4px;margin-top:0.5rem;">{{ profile.bio }}</textarea><br>
+            <button id="bio-save-btn" style="margin-top:0.5rem;background:#667eea;color:white;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;">Save Bio</button>
+            <span id="bio-status" style="margin-left:0.75rem;font-size:0.9rem;"></span>
+        </div>
+
+        {% csrf_token %}
+
+        <script>
+        // Helper: read a named cookie (used to get the csrftoken Django sets).
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        document.getElementById('bio-save-btn').addEventListener('click', function () {
+            const bio = document.getElementById('bio-input').value;
+            const statusEl = document.getElementById('bio-status');
+            statusEl.textContent = 'Saving…';
+
+            // FIX: pass the CSRF token in the X-CSRFToken header so Django's
+            // CsrfViewMiddleware can validate the request without @csrf_exempt.
+            fetch("{% url 'uwamahoro_joseline:update_bio' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify({ bio: bio }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    document.getElementById('bio-text').textContent = data.bio || 'No bio provided';
+                    statusEl.style.color = 'green';
+                    statusEl.textContent = 'Saved!';
+                } else {
+                    statusEl.style.color = 'red';
+                    statusEl.textContent = 'Error: ' + (data.error || 'unknown');
+                }
+            })
+            .catch(() => { statusEl.style.color = 'red'; statusEl.textContent = 'Request failed.'; });
+        });
+        </script>
+
+        <p style="margin-top:1rem;">
+            <a href="{% url 'uwamahoro_joseline:edit_user_account' profile.user.id %}">Edit account details</a>
+            &nbsp;|&nbsp;
+            <a href="{% url 'uwamahoro_joseline:upload_avatar' %}">Upload avatar</a>
+        </p>
+    {% endif %}
+
+    {% if profile.avatar %}
+        <div style="margin-top:1rem;">
+            <p><strong>Avatar:</strong></p>
+            <img src="{{ profile.avatar.url }}" alt="Avatar" style="max-width:150px;border-radius:8px;">
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
