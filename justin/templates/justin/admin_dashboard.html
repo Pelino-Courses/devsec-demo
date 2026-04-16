@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen">
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+    
+    <div class="relative min-h-screen flex flex-col">
+        <header class="bg-white/10 backdrop-blur-xl border-b border-white/20">
+            <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-white font-bold text-xl">Admin Dashboard</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-purple-400 text-sm">{{ user.username }} ({{ user_role }})</span>
+                    <a href="{% url 'profile' %}" class="text-gray-300 hover:text-white transition-colors">Profile</a>
+                    <form method="post" action="{% url 'logout' %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-gray-300 hover:text-white transition-colors">Logout</button>
+                    </form>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4">
+            <div class="max-w-6xl mx-auto">
+                <div class="grid md:grid-cols-3 gap-6 mb-6">
+                    <a href="{% url 'admin_dashboard' %}" class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
+                        <h3 class="text-white font-medium">Dashboard</h3>
+                        <p class="text-gray-400 text-sm mt-1">Overview</p>
+                    </a>
+                    {% if is_admin %}
+                    <a href="{% url 'user_management' %}" class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
+                        <h3 class="text-white font-medium">User Management</h3>
+                        <p class="text-gray-400 text-sm mt-1">Manage user roles</p>
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'all_profiles' %}" class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 hover:bg-white/20 transition-all">
+                        <h3 class="text-white font-medium">All Profiles</h3>
+                        <p class="text-gray-400 text-sm mt-1">View all user profiles</p>
+                    </a>
+                </div>
+                
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                    <h2 class="text-white text-xl font-bold mb-4">Recent Users</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-white/20">
+                                    <th class="text-gray-400 pb-3">Username</th>
+                                    <th class="text-gray-400 pb-3">Email</th>
+                                    <th class="text-gray-400 pb-3">Role</th>
+                                    <th class="text-gray-400 pb-3">Joined</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for profile in profiles|slice:":10" %}
+                                <tr class="border-b border-white/10">
+                                    <td class="py-3 text-white">{{ profile.user.username }}</td>
+                                    <td class="py-3 text-gray-300">{{ profile.user.email }}</td>
+                                    <td class="py-3">
+                                        <span class="px-2 py-1 rounded text-sm {% if profile.role == 'admin' %}bg-red-500/20 text-red-400{% elif profile.role == 'staff' %}bg-orange-500/20 text-orange-400{% elif profile.role == 'instructor' %}bg-purple-500/20 text-purple-400{% else %}bg-green-500/20 text-green-400{% endif %}">
+                                            {{ profile.get_role_display }}
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-gray-300">{{ profile.created_at|date:"M d, Y" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
