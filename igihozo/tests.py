@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, Permission, User
 from django.test import TestCase
 from django.urls import reverse
 
@@ -106,3 +106,68 @@ class AuthenticationFlowTests(TestCase):
         self.assertRedirects(response, reverse("igihozo:password_change_done"))
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("EvenStronger123!"))
+
+
+class RoleBasedAccessControlTests(TestCase):
+    def setUp(self):
+        self.password = "ComplexPass123!"
+        self.standard_user = User.objects.create_user(
+            username="studentuser",
+            email="student@example.com",
+            password=self.password,
+        )
+        self.staff_user = User.objects.create_user(
+            username="staffuser",
+            email="staff@example.com",
+            password=self.password,
+            is_staff=True,
+        )
+        self.instructor_user = User.objects.create_user(
+            username="instructoruser",
+            email="instructor@example.com",
+            password=self.password,
+        )
+        self.instructors_group = Group.objects.get(name="instructors")
+        self.students_group = Group.objects.get(name="students")
+        self.instructor_user.groups.add(self.instructors_group)
+
+    def test_new_users_are_assigned_to_student_group(self):
+        self.assertTrue(self.standard_user.groups.filter(name="students").exists())
+
+    def test_anonymous_user_cannot_access_privileged_dashboard(self):
+        response = self.client.get(reverse("igihozo:privileged_dashboard"))
+
+        self.assertRedirects(
+            response,
+            f"{reverse('igihozo:login')}?next={reverse('igihozo:privileged_dashboard')}",
+        )
+
+    def test_authenticated_standard_user_gets_403_for_privileged_dashboard(self):
+        self.client.login(username="studentuser", password=self.password)
+
+        response = self.client.get(reverse("igihozo:privileged_dashboard"))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "do not have permission", status_code=403)
+
+    def test_instructor_group_user_can_access_privileged_dashboard(self):
+        self.client.login(username="instructoruser", password=self.password)
+
+        response = self.client.get(reverse("igihozo:privileged_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Privileged dashboard")
+        self.assertContains(response, "studentuser")
+
+    def test_staff_user_can_access_privileged_dashboard(self):
+        self.client.login(username="staffuser", password=self.password)
+
+        response = self.client.get(reverse("igihozo:privileged_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Registered users")
+
+    def test_instructor_group_receives_privileged_permission(self):
+        permission = Permission.objects.get(codename="view_privileged_dashboard")
+
+        self.assertTrue(self.instructors_group.permissions.filter(pk=permission.pk).exists())

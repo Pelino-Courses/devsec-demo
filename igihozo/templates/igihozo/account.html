@@ -25,7 +25,18 @@
                 <span>Joined</span>
                 <strong>{{ user.date_joined|date:"M d, Y" }}</strong>
             </div>
+            <div class="account-stat">
+                <span>Roles</span>
+                <strong>{{ role_labels|join:", " }}</strong>
+            </div>
         </div>
+        {% if is_privileged_user %}
+            <div class="callout">
+                <strong>Privileged access enabled.</strong>
+                <p>You can open the privileged dashboard to review role-aware account data.</p>
+                <a class="button secondary" href="{% url 'igihozo:privileged_dashboard' %}">Open dashboard</a>
+            </div>
+        {% endif %}
     </article>
 
     <article class="panel">

@@ -15,6 +15,9 @@ class Profile(models.Model):
 
     class Meta:
         ordering = ["user__username"]
+        permissions = [
+            ("view_privileged_dashboard", "Can view the privileged dashboard"),
+        ]
 
     def __str__(self):
         return self.display_name or self.user.get_username()

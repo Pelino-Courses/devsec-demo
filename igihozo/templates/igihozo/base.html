@@ -21,6 +21,9 @@
                 <a href="{% url 'igihozo:home' %}">Home</a>
                 {% if user.is_authenticated %}
                     <a href="{% url 'igihozo:account' %}">Account</a>
+                    {% if perms.igihozo.view_privileged_dashboard or user.is_staff or user.is_superuser %}
+                        <a href="{% url 'igihozo:privileged_dashboard' %}">Privileged</a>
+                    {% endif %}
                     <a href="{% url 'igihozo:password_change' %}">Password</a>
                     <form method="post" action="{% url 'igihozo:logout' %}">
                         {% csrf_token %}

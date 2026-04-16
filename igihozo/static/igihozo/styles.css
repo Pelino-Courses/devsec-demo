@@ -254,6 +254,13 @@ a {
     margin-top: 1.25rem;
 }
 
+.role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
 .account-stat {
     padding: 1rem;
     border-radius: 20px;
@@ -265,6 +272,41 @@ a {
     display: block;
     color: var(--muted);
     margin-bottom: 0.4rem;
+}
+
+.callout {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(15, 118, 110, 0.18);
+    background: rgba(15, 118, 110, 0.08);
+}
+
+.callout p {
+    margin: 0.5rem 0 1rem;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.user-table th,
+.user-table td {
+    padding: 0.9rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+}
+
+.user-table th {
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 ul {
