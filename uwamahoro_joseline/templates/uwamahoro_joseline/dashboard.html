@@ -1,0 +1,9 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>Dashboard</h1>
+    <p>Welcome, {{ user.username }}!</p>
+    <p><a href="{% url 'profile' %}">View your profile</a></p>
+</div>
+{% endblock %}

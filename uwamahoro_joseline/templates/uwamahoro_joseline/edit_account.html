@@ -1,0 +1,18 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>Edit Account</h1>
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom: 1.5rem;">
+            <label>Username: {{ target_user.username }}</label>
+        </div>
+        <div style="margin-bottom: 1.5rem;">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" value="{{ target_user.email }}" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <button type="submit" style="background: #667eea; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer;">Update</button>
+    </form>
+</div>
+{% endblock %}

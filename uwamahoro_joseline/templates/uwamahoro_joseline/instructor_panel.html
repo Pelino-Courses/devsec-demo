@@ -1,0 +1,47 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>Instructor Panel</h1>
+    <p>Manage user roles and permissions.</p>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 2px solid #ddd;">
+                <th style="text-align: left; padding: 0.5rem;">Username</th>
+                <th style="text-align: left; padding: 0.5rem;">Email</th>
+                <th style="text-align: left; padding: 0.5rem;">Role</th>
+                <th style="text-align: left; padding: 0.5rem;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 0.5rem;">{{ user.username }}</td>
+                    <td style="padding: 0.5rem;">{{ user.email }}</td>
+                    <td style="padding: 0.5rem;">
+                        {% if user.id in instructor_ids %}
+                            <span style="background: #d4edda; padding: 0.25rem 0.5rem; border-radius: 4px;">Instructor</span>
+                        {% else %}
+                            <span style="background: #e7e7e7; padding: 0.25rem 0.5rem; border-radius: 4px;">Student</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 0.5rem;">
+                        <form method="post" action="{% url 'promote_user' user.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            {% if user.id in instructor_ids %}
+                                <button type="submit" name="action" value="demote" style="background: #f8d7da; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">Demote</button>
+                            {% else %}
+                                <button type="submit" name="action" value="promote" style="background: #d4edda; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">Promote</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="4" style="padding: 1rem; text-align: center;">No users found.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
