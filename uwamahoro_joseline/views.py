@@ -13,7 +13,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.csrf import csrf_exempt
 
 from .decorators import instructor_required
 from .forms import RegistrationForm
@@ -255,14 +254,16 @@ def profile_view(request):
     return render(request, "uwamahoro_joseline/profile.html", {"profile": profile})
 
 
-@csrf_exempt  # INSECURE: exempts CSRF validation so AJAX "just works" — must be fixed
 @login_required
 def update_bio(request):
     """
     AJAX endpoint to update the user's bio.
 
-    VULNERABILITY: @csrf_exempt disables CSRF validation entirely, allowing any
-    cross-origin POST to silently update the bio on behalf of an authenticated user.
+    CSRF Fix: @csrf_exempt removed. Django's CsrfViewMiddleware now validates
+    the X-CSRFToken header that the browser sends with every fetch call.
+    The template reads the csrftoken cookie and passes it as a request header,
+    so legitimate same-origin requests continue to work while cross-origin
+    forged requests are rejected with 403.
     """
     if request.method != "POST":
         return JsonResponse({"error": "POST required"}, status=405)

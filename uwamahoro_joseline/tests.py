@@ -1,5 +1,6 @@
 """
-Tests for brute-force protection on the login flow.
+Tests for brute-force protection on the login flow and CSRF protection on the
+bio update endpoint.
 
 Tests cover:
 - Normal login behavior and successful authentication
@@ -8,6 +9,7 @@ Tests cover:
 - User enumeration prevention
 - IP address extraction and tracking
 - Throttle status calculation across different time windows
+- CSRF enforcement on the AJAX bio update endpoint
 """
 
 from django.test import TestCase, Client
@@ -16,7 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import LoginAttempt
+from .models import LoginAttempt, Profile
 from .views import record_login_attempt, get_throttle_status
 
 
@@ -469,3 +471,109 @@ class LoginViewEdgeCasesTests(TestCase):
         response = self.client.get(self.login_url)
         # Should redirect to dashboard, not show login form
         self.assertEqual(response.status_code, 302)
+
+
+# ── CSRF Protection Tests ─────────────────────────────────────────────────────
+
+class UpdateBioCSRFTests(TestCase):
+    """
+    Tests verifying that the bio update endpoint enforces CSRF protection.
+
+    Design note:
+    The endpoint originally used @csrf_exempt so the fetch call worked without
+    an X-CSRFToken header.  That made the endpoint vulnerable: any page on any
+    origin could silently POST and overwrite the bio of every logged-in visitor.
+
+    The fix removes @csrf_exempt and requires the X-CSRFToken header.  Django's
+    Client enforces CSRF by default when enforce_csrf_checks=True; the standard
+    Client skips it (mirrors browser behaviour for same-origin requests which
+    always carry the token).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="biouser", password="testpass123")
+        self.profile, _ = Profile.objects.get_or_create(user=self.user)
+        self.url = reverse("uwamahoro_joseline:update_bio")
+
+    def test_unauthenticated_request_redirected(self):
+        """Unauthenticated users cannot reach the endpoint."""
+        client = Client()
+        response = client.post(
+            self.url,
+            data='{"bio": "hacked"}',
+            content_type="application/json",
+        )
+        # Should redirect to login, not process the request
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+    def test_post_without_csrf_token_rejected(self):
+        """
+        A POST request missing the CSRF token must be rejected with 403.
+
+        Uses enforce_csrf_checks=True to simulate a real browser cross-origin
+        request that does not carry the csrftoken cookie value in the header.
+        """
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.login(username="biouser", password="testpass123")
+        response = csrf_client.post(
+            self.url,
+            data='{"bio": "forged bio"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        # Bio must not have changed
+        profile = Profile.objects.get(user=self.user)
+        self.assertNotEqual(profile.bio, "forged bio")
+
+    def test_post_with_csrf_token_succeeds(self):
+        """
+        A legitimate same-origin POST that includes the CSRF token is accepted.
+
+        Django's standard test Client automatically includes the CSRF token,
+        mirroring a browser form/fetch that reads the csrftoken cookie.
+        """
+        self.client.login(username="biouser", password="testpass123")
+        import json
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"bio": "My updated bio"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["bio"], "My updated bio")
+        # Verify persisted in DB
+        profile = Profile.objects.get(user=self.user)
+        self.assertEqual(profile.bio, "My updated bio")
+
+    def test_get_request_rejected(self):
+        """GET requests must return 405 — bio update is POST-only."""
+        self.client.login(username="biouser", password="testpass123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 405)
+
+    def test_invalid_json_returns_400(self):
+        """Malformed JSON body returns 400, not a server error."""
+        self.client.login(username="biouser", password="testpass123")
+        response = self.client.post(
+            self.url,
+            data="not json at all",
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_empty_bio_allowed(self):
+        """Users can clear their bio by sending an empty string."""
+        Profile.objects.get_or_create(user=self.user, defaults={"bio": "old bio"})
+        self.client.login(username="biouser", password="testpass123")
+        import json
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"bio": ""}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        profile = Profile.objects.get(user=self.user)
+        self.assertEqual(profile.bio, "")
