@@ -1,0 +1,10 @@
+{% extends 'uwase05/base.html' %}
+
+{% block title %}Profile{% endblock %}
+{% block header %}Profile{% endblock %}
+
+{% block content %}
+<p>Username: {{ user.username|escape }}</p>
+<p>Email: {{ user.email|escape }}</p>
+<p>Bio: {{ profile.bio|default:'No bio provided.'|escape }}</p>
+{% endblock %}
