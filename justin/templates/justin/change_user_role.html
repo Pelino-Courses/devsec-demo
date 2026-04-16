@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change User Role - Student Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-red-900 to-slate-900 min-h-screen">
+    <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.05"%3E%3Cpath d="M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+    
+    <div class="relative min-h-screen flex flex-col">
+        <header class="bg-white/10 backdrop-blur-xl border-b border-white/20">
+            <div class="max-w-2xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <span class="text-white font-bold text-xl">Change Role</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="{% url 'user_management' %}" class="text-gray-300 hover:text-white transition-colors">Back</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 flex items-center justify-center">
+            <div class="max-w-2xl w-full">
+                <div class="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6">
+                    <h2 class="text-white text-xl font-bold mb-4">Change Role for {{ target_user.username }}</h2>
+                    
+                    <form method="post" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-gray-400 text-sm mb-2">Select Role</label>
+                            <select name="role" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white">
+                                <option value="user" {% if target_user.profile.role == 'user' %}selected{% endif %}>Standard User</option>
+                                <option value="instructor" {% if target_user.profile.role == 'instructor' %}selected{% endif %}>Instructor</option>
+                                <option value="staff" {% if target_user.profile.role == 'staff' %}selected{% endif %}>Staff</option>
+                                <option value="admin" {% if target_user.profile.role == 'admin' %}selected{% endif %}>Administrator</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex gap-4">
+                            <button type="submit" class="flex-1 py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors">
+                                Update Role
+                            </button>
+                            <a href="{% url 'user_management' %}" class="flex-1 py-2 px-4 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium rounded-lg text-center transition-colors">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
