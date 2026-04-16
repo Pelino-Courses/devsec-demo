@@ -26,7 +26,7 @@
                         {% endif %}
                     </td>
                     <td style="padding: 0.5rem;">
-                        <form method="post" action="{% url 'promote_user' user.id %}" style="display: inline;">
+                        <form method="post" action="{% url 'uwamahoro_joseline:promote_user' user.id %}" style="display: inline;">
                             {% csrf_token %}
                             {% if user.id in instructor_ids %}
                                 <button type="submit" name="action" value="demote" style="background: #f8d7da; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer;">Demote</button>

