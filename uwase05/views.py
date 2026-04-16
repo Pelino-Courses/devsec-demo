@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -13,6 +14,7 @@ from django.contrib.auth.views import (
 )
 from django.core.cache import cache
 from django.conf import settings
+from django.http import FileResponse, Http404
 from django.shortcuts import render, resolve_url
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
@@ -20,7 +22,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import CreateView, TemplateView
 
 from .authorization import is_instructor
-from .forms import StudentRegistrationForm
+from .forms import ProfileUploadForm, StudentRegistrationForm
 from .models import Profile
 
 logger = logging.getLogger('uwase05.audit')
@@ -195,8 +197,70 @@ def dashboard(request):
     return render(request, 'uwase05/dashboard.html')
 
 
+def _content_type_from_name(filename):
+    if filename.lower().endswith(('.jpg', '.jpeg')):
+        return 'image/jpeg'
+    if filename.lower().endswith('.png'):
+        return 'image/png'
+    if filename.lower().endswith('.gif'):
+        return 'image/gif'
+    if filename.lower().endswith('.pdf'):
+        return 'application/pdf'
+    return 'text/plain'
+
+
 @login_required
 def profile(request):
-    # Load or create only the profile belonging to the authenticated user.
     profile, _ = Profile.objects.get_or_create(user=request.user)
-    return render(request, 'uwase05/profile.html', {'profile': profile})
+    success_message = None
+
+    if request.method == 'POST':
+        form = ProfileUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            avatar = form.cleaned_data.get('avatar')
+            document = form.cleaned_data.get('document')
+            if avatar:
+                profile.avatar = avatar
+            if document:
+                profile.document = document
+            if avatar or document:
+                profile.save()
+                success_message = 'File uploads were saved successfully.'
+    else:
+        form = ProfileUploadForm()
+
+    return render(
+        request,
+        'uwase05/profile.html',
+        {
+            'profile': profile,
+            'form': form,
+            'success_message': success_message,
+        },
+    )
+
+
+@login_required
+def profile_avatar(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    if not profile.avatar:
+        raise Http404()
+    return FileResponse(
+        profile.avatar.open('rb'),
+        content_type=_content_type_from_name(profile.avatar.name),
+    )
+
+
+@login_required
+def profile_document(request):
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    if not profile.document:
+        raise Http404()
+    response = FileResponse(
+        profile.document.open('rb'),
+        content_type=_content_type_from_name(profile.document.name),
+    )
+    response['Content-Disposition'] = (
+        f'attachment; filename="{os.path.basename(profile.document.name)}"'
+    )
+    return response

@@ -1,5 +1,6 @@
 from django.contrib.auth.models import Group, User
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -257,6 +258,72 @@ class AuthenticationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;Malicious content')
         self.assertNotContains(response, '<script>alert("xss")</script>')
+
+    def test_profile_file_uploads_are_validated_and_saved(self):
+        self.client.login(username='tester', password='StrongPass123')
+
+        avatar = SimpleUploadedFile(
+            'avatar.png',
+            b'\x89PNG\r\n\x1a\n' + b'\x00' * 128,
+            content_type='image/png',
+        )
+        document = SimpleUploadedFile(
+            'sample.pdf',
+            b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n',
+            content_type='application/pdf',
+        )
+
+        response = self.client.post(
+            self.profile_url,
+            {'avatar': avatar, 'document': document},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'File uploads were saved successfully.')
+
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.avatar.name.endswith('.png'))
+        self.assertTrue(self.user.profile.document.name.endswith('.pdf'))
+
+    def test_invalid_avatar_file_upload_is_rejected(self):
+        self.client.login(username='tester', password='StrongPass123')
+
+        invalid_avatar = SimpleUploadedFile(
+            'avatar.jpg',
+            b'not-an-image',
+            content_type='image/jpeg',
+        )
+
+        response = self.client.post(
+            self.profile_url,
+            {'avatar': invalid_avatar},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'Uploaded avatar does not appear to be a valid image.',
+        )
+
+    def test_profile_document_download_is_restricted_to_authenticated_users(self):
+        self.client.login(username='tester', password='StrongPass123')
+        self.user.profile.document.save(
+            'sample.pdf',
+            SimpleUploadedFile(
+                'sample.pdf',
+                b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n',
+                content_type='application/pdf',
+            ),
+        )
+        self.user.profile.save()
+
+        response = self.client.get(reverse('uwase05:profile_document'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+
+        self.client.logout()
+        response = self.client.get(reverse('uwase05:profile_document'))
+        self.assertRedirects(response, f'{self.login_url}?next={reverse("uwase05:profile_document")}')
 
     def test_standard_user_cannot_access_instructor_area(self):
         self.client.login(username='tester', password='StrongPass123')

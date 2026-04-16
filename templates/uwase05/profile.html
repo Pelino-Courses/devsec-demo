@@ -7,4 +7,51 @@
 <p>Username: {{ user.username|escape }}</p>
 <p>Email: {{ user.email|escape }}</p>
 <p>Bio: {{ profile.bio|default:'No bio provided.'|escape }}</p>
+
+{% if profile.avatar %}
+    <div>
+        <strong>Avatar:</strong>
+        <div>
+            <img src="{% url 'uwase05:profile_avatar' %}" alt="Avatar" style="max-width: 200px; max-height: 200px;" />
+        </div>
+    </div>
+{% endif %}
+
+{% if profile.document %}
+    <p>
+        <strong>Document:</strong>
+        <a href="{% url 'uwase05:profile_document' %}">Download uploaded document</a>
+    </p>
+{% endif %}
+
+{% if success_message %}
+    <div class="messages">
+        <p>{{ success_message }}</p>
+    </div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="field">
+        {{ form.avatar.label_tag }}
+        {{ form.avatar }}
+        {% if form.avatar.help_text %}
+            <div><small>{{ form.avatar.help_text }}</small></div>
+        {% endif %}
+        {{ form.avatar.errors }}
+    </div>
+
+    <div class="field">
+        {{ form.document.label_tag }}
+        {{ form.document }}
+        {% if form.document.help_text %}
+            <div><small>{{ form.document.help_text }}</small></div>
+        {% endif %}
+        {{ form.document.errors }}
+    </div>
+
+    <button type="submit">Upload files</button>
+</form>
 {% endblock %}
