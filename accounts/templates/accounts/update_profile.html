@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Update Profile</title></head>
+<body>
+    <h1>Update Profile</h1>
+    <form method="post">
+        {% csrf_token %}
+        <p>Bio:</p>
+        <textarea name="bio" rows="5" cols="40">{{ profile.bio }}</textarea><br>
+        <button type="submit">Save Changes</button>
+    </form>
+    <p><a href="{% url 'profile' %}">Cancel</a></p>
+</body>
+</html>

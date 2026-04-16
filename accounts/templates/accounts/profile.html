@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><title>Profile</title></head>
+<body>
+    <h1>Profile: {{ profile.user.username }}</h1>
+    
+    <h3>Bio</h3>
+    <div class="bio-content">
+        <!-- FIXED: Removed |safe filter to prevent Stored XSS -->
+        <!-- Django auto-escapes this by default, ensuring any script tags are rendered as plain text -->
+        {{ profile.bio }}
+    </div>
+
+    <hr>
+    <p><a href="{% url 'update_profile' %}">Update Bio</a></p>
+    <form method="post" action="{% url 'login' %}"> <!-- actually just redirecting for now -->
+        <a href="{% url 'login' %}">Back to Login</a>
+    </form>
+</body>
+</html>
