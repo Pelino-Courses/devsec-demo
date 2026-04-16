@@ -1,0 +1,13 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block content %}
+<div class="card">
+    <h1>{{ profile.user.username }}'s Profile</h1>
+    <p><strong>Email:</strong> {{ profile.user.email }}</p>
+    <p><strong>Bio:</strong> {{ profile.bio|default:"No bio provided" }}</p>
+    <p><strong>Member Since:</strong> {{ profile.created_at|date:"M d, Y" }}</p>
+    {% if profile.user == user %}
+        <p><a href="{% url 'edit_user_account' profile.user.id %}">Edit account</a></p>
+    {% endif %}
+</div>
+{% endblock %}
