@@ -8,6 +8,24 @@ For more information on this file, see
 
 For the full list of settings and their values, see
     https://docs.djangoproject.com/en/6.0/ref/settings/
+
+Security design notes
+---------------------
+All security-relevant settings are grouped and annotated below.  The key
+principles applied:
+
+1. Fail fast on missing secrets — a missing SECRET_KEY raises at startup
+   rather than silently running with None (which makes sessions forgeable).
+2. Explicit bool for DEBUG — os.environ.get returns a string; the literal
+   "False" is truthy, so an explicit membership test is required.
+3. ALLOWED_HOSTS from environment — avoids both an empty list (production
+   breakage) and a wildcard '*' (host-header injection).
+4. Secure cookies — Secure + HttpOnly + SameSite=Lax on both session and
+   CSRF cookies; Secure is skipped in local dev (DEBUG=True, no HTTPS).
+5. Security headers — X-Content-Type-Options, X-Frame-Options, and
+   Referrer-Policy set unconditionally via Django middleware settings.
+6. HTTPS transport settings — HSTS and SSL redirect are active only when
+   DEBUG=False so local development is not broken.
 """
 import os
 from pathlib import Path
@@ -20,42 +38,34 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# ── Core security (INSECURE BASELINE) ─────────────────────────────────────────
-
-# INSECURE: os.environ.get returns a string, not None-or-secret-value safety.
-# If DJANGO_SECRET_KEY is missing the app starts with SECRET_KEY=None, which
-# makes signed cookies, sessions, and CSRF tokens trivially forgeable.
+# ── Secret key ────────────────────────────────────────────────────────────────
+# FIX: Fail fast if the secret key is missing.
+# With SECRET_KEY=None Django accepts any signed value (sessions, CSRF tokens,
+# password-reset links) because HMAC(None, …) always produces the same result.
+# Generate a key with:
+#   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError(
+        "DJANGO_SECRET_KEY environment variable is not set. "
+        "Add it to your .env file before starting the server."
+    )
 
-# INSECURE: os.environ.get returns a raw string.  Any non-empty string —
-# including the literal "False" — is truthy in Python, so setting
-# DJANGO_DEBUG=False in the environment would still leave DEBUG=True.
-DEBUG = os.environ.get('DJANGO_DEBUG')
+# ── Debug mode ────────────────────────────────────────────────────────────────
+# FIX: Convert the env-var string to a real Python bool.
+# os.environ.get always returns a string (or None).  Any non-empty string —
+# including the literal "False" — is truthy, so naive truthiness tests break.
+# Explicit membership against known 'true' values is the safe pattern.
+DEBUG = os.environ.get('DJANGO_DEBUG', '').lower() in ('1', 'true', 'yes')
 
-# INSECURE: empty list relies on Django's DEBUG-mode exemption for localhost.
-# In production (DEBUG=False) every incoming request would be rejected with
-# a 400 Bad Request because no host is allowed.
-ALLOWED_HOSTS = []
-
-# ── Cookie security (explicitly insecure defaults) ────────────────────────────
-# INSECURE: cookies are transmitted over plain HTTP — session tokens and CSRF
-# values travel in the clear over any network path.
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-
-# INSECURE: JavaScript can read the session cookie via document.cookie.
-# An XSS payload can silently exfiltrate it to an attacker-controlled server.
-SESSION_COOKIE_HTTPONLY = False
-
-# INSECURE: No SameSite attribute — a cross-site POST can trigger state-
-# changing requests with the victim's session (CSRF via navigation).
-# SESSION_COOKIE_SAMESITE and CSRF_COOKIE_SAMESITE are not set.
-
-# ── Security headers (not configured) ────────────────────────────────────────
-# INSECURE: SECURE_CONTENT_TYPE_NOSNIFF not set — browsers may MIME-sniff
-# uploaded files and execute them as scripts.
-# INSECURE: SECURE_REFERRER_POLICY not set — full URLs (including tokens in
-# query strings) leak to third-party origins via the Referer header.
+# ── Allowed hosts ─────────────────────────────────────────────────────────────
+# FIX: ALLOWED_HOSTS must be explicit.
+# An empty list works only because DEBUG=True silently exempts localhost.
+# In production (DEBUG=False) every request is rejected with 400 Bad Request
+# unless at least one host is listed.  Read from the environment so the same
+# settings file works in all environments without modification.
+_raw_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
 
 
 # Application definition
@@ -150,6 +160,64 @@ STATIC_URL = 'static/'
 # Media files (user uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# ── Cookie security ───────────────────────────────────────────────────────────
+# FIX: Harden session and CSRF cookies.
+#
+# Secure=True  — cookie is never sent over plain HTTP; prevents network
+#                eavesdropping.  Disabled in local dev (DEBUG=True) because
+#                the dev server runs on http://localhost without TLS.
+# HttpOnly=True — JavaScript cannot access the cookie via document.cookie;
+#                 even if XSS executes, the session token stays hidden.
+# SameSite=Lax  — cookie is sent on same-site requests and on top-level
+#                 cross-site GET navigations (e.g. clicking a link), but
+#                 NOT on cross-site POST/PUT/DELETE.  This blocks CSRF via
+#                 form submissions from attacker-controlled pages.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+
+# ── Security headers ──────────────────────────────────────────────────────────
+# FIX: Enable security headers via SecurityMiddleware and XFrameOptionsMiddleware.
+#
+# SECURE_CONTENT_TYPE_NOSNIFF — emits X-Content-Type-Options: nosniff.
+#   Prevents browsers from MIME-sniffing a response away from the declared
+#   Content-Type.  Without this, an uploaded .jpg containing HTML could be
+#   served as text/html and execute attacker scripts.
+#
+# X_FRAME_OPTIONS='DENY' — emits X-Frame-Options: DENY via
+#   XFrameOptionsMiddleware.  Prevents the site from being embedded in
+#   <iframe>, <frame>, or <object> tags on any origin (clickjacking defence).
+#
+# SECURE_REFERRER_POLICY — emits Referrer-Policy header.
+#   'strict-origin-when-cross-origin': sends full URL for same-origin requests
+#   but only the bare origin for cross-origin ones.  Prevents tokens or IDs
+#   in query strings from leaking to third-party servers via the Referer header.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+
+# ── HTTPS transport (production only) ────────────────────────────────────────
+# FIX: Enable HTTPS enforcement in production.  These settings are active only
+# when DEBUG=False so local development (http://localhost) continues to work.
+#
+# SECURE_SSL_REDIRECT — redirect all HTTP requests to HTTPS.
+# SECURE_HSTS_SECONDS — instruct browsers to connect via HTTPS only for one
+#   year.  Only enable after confirming HTTPS works; a misconfigured HSTS header
+#   can lock users out if the certificate expires or is revoked.
+# SECURE_HSTS_INCLUDE_SUBDOMAINS — extend HSTS to all subdomains.
+# SECURE_HSTS_PRELOAD — eligible for browser HSTS preload lists.
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000          # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 
 # ── Audit Logging ─────────────────────────────────────────────────────────────

@@ -1187,3 +1187,134 @@ class SecureFileUploadTests(TestCase):
         with self.assertLogs(AUDIT_LOGGER, level="WARNING") as log:
             self.client.post(self.upload_url, {"avatar": f})
         self.assertTrue(any("AVATAR_UPLOAD_REJECTED" in m for m in log.output))
+
+
+# ── Security Settings Tests ───────────────────────────────────────────────────
+
+from django.conf import settings as django_settings  # noqa: E402
+
+
+class SecuritySettingsTests(TestCase):
+    """
+    Tests verifying that production-grade security settings are configured.
+
+    Design note:
+    Fresh Django projects ship with development defaults that are unsafe in
+    production: DEBUG parsed as a truthy string, an empty ALLOWED_HOSTS,
+    no cookie hardening, and no security headers.  Each test below asserts
+    that the specific fix is in place so regressions are caught immediately.
+    """
+
+    # ── DEBUG type ────────────────────────────────────────────────────────────
+
+    def test_debug_is_bool_not_string(self):
+        """
+        DEBUG must be a Python bool, not a truthy string.
+
+        os.environ.get returns a string; any non-empty string (including the
+        literal 'False') evaluates as True.  The settings module must convert
+        it to a real bool via an explicit membership test.
+        """
+        self.assertIsInstance(django_settings.DEBUG, bool,
+                              "DEBUG must be bool, not a truthy string from os.environ.get")
+
+    # ── Cookie security ───────────────────────────────────────────────────────
+
+    def test_session_cookie_httponly(self):
+        """
+        SESSION_COOKIE_HTTPONLY must be True so JavaScript cannot read the
+        session token via document.cookie, even when XSS executes.
+        """
+        self.assertTrue(django_settings.SESSION_COOKIE_HTTPONLY)
+
+    def test_csrf_cookie_httponly(self):
+        """CSRF_COOKIE_HTTPONLY must be True (defence in depth alongside SameSite)."""
+        self.assertTrue(django_settings.CSRF_COOKIE_HTTPONLY)
+
+    def test_session_cookie_samesite_set(self):
+        """
+        SESSION_COOKIE_SAMESITE must be set to 'Lax' or 'Strict'.
+        A missing SameSite attribute defaults to browser-specific behaviour
+        and does not reliably block cross-site form submissions.
+        """
+        self.assertIn(
+            django_settings.SESSION_COOKIE_SAMESITE,
+            ('Lax', 'Strict'),
+            "SESSION_COOKIE_SAMESITE must be Lax or Strict",
+        )
+
+    def test_csrf_cookie_samesite_set(self):
+        """CSRF_COOKIE_SAMESITE must be set to 'Lax' or 'Strict'."""
+        self.assertIn(
+            django_settings.CSRF_COOKIE_SAMESITE,
+            ('Lax', 'Strict'),
+            "CSRF_COOKIE_SAMESITE must be Lax or Strict",
+        )
+
+    # ── Security headers ─────────────────────────────────────────────────────
+
+    def test_content_type_nosniff_enabled(self):
+        """
+        SECURE_CONTENT_TYPE_NOSNIFF must be True so SecurityMiddleware emits
+        X-Content-Type-Options: nosniff on every response.
+        Without this, browsers may MIME-sniff uploaded content and execute it.
+        """
+        self.assertTrue(django_settings.SECURE_CONTENT_TYPE_NOSNIFF)
+
+    def test_x_frame_options_deny(self):
+        """
+        X_FRAME_OPTIONS must be 'DENY' so XFrameOptionsMiddleware blocks all
+        framing — the primary clickjacking defence.
+        """
+        self.assertEqual(django_settings.X_FRAME_OPTIONS, 'DENY')
+
+    def test_referrer_policy_set(self):
+        """
+        SECURE_REFERRER_POLICY must be configured so URLs (which may contain
+        tokens or IDs in query strings) do not leak to third-party servers
+        via the Referer header.
+        """
+        self.assertIsNotNone(django_settings.SECURE_REFERRER_POLICY)
+        self.assertNotEqual(django_settings.SECURE_REFERRER_POLICY, '')
+
+    def test_allowed_hosts_not_empty(self):
+        """
+        ALLOWED_HOSTS must be a non-empty list.
+        An empty list relies on DEBUG=True silently exempting localhost;
+        in production every request would be rejected with 400 Bad Request.
+        """
+        self.assertTrue(
+            len(django_settings.ALLOWED_HOSTS) > 0,
+            "ALLOWED_HOSTS must not be empty",
+        )
+
+    def test_secret_key_is_set(self):
+        """SECRET_KEY must be a non-empty string — None makes sessions forgeable."""
+        self.assertTrue(
+            bool(django_settings.SECRET_KEY),
+            "SECRET_KEY must be set and non-empty",
+        )
+
+    # ── HTTP response headers ─────────────────────────────────────────────────
+
+    def test_x_content_type_options_header_present(self):
+        """
+        X-Content-Type-Options: nosniff must appear in every response when
+        SECURE_CONTENT_TYPE_NOSNIFF=True and SecurityMiddleware is installed.
+        """
+        response = self.client.get(reverse("uwamahoro_joseline:login"))
+        self.assertEqual(response.get("X-Content-Type-Options"), "nosniff")
+
+    def test_x_frame_options_header_present(self):
+        """
+        X-Frame-Options: DENY must appear in every response when
+        X_FRAME_OPTIONS='DENY' and XFrameOptionsMiddleware is installed.
+        """
+        response = self.client.get(reverse("uwamahoro_joseline:login"))
+        self.assertEqual(response.get("X-Frame-Options"), "DENY")
+
+    def test_referrer_policy_header_present(self):
+        """Referrer-Policy header must appear in every response."""
+        response = self.client.get(reverse("uwamahoro_joseline:login"))
+        self.assertIsNotNone(response.get("Referrer-Policy"),
+                             "Referrer-Policy header missing from response")
