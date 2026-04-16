@@ -1010,3 +1010,180 @@ class StoredXSSTests(TestCase):
         bio_span = self._get_bio_span()
         self.assertNotIn("<script>", bio_span)
         self.assertIn("&lt;script&gt;", bio_span)
+
+
+# ── Secure File Upload Tests ──────────────────────────────────────────────────
+
+
+def _make_file(name, content, content_type="image/jpeg"):
+    """Return an InMemoryUploadedFile-compatible file object."""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    return SimpleUploadedFile(name, content, content_type=content_type)
+
+
+# Minimal magic bytes for each allowed format
+_JPEG_MAGIC = b"\xff\xd8\xff" + b"\x00" * 100
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+_GIF_MAGIC = b"GIF89a" + b"\x00" * 100
+_WEBP_MAGIC = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 100
+
+
+class SecureFileUploadTests(TestCase):
+    """
+    Tests verifying secure avatar upload validation.
+
+    Design note:
+    The insecure baseline accepted any file without checking extension, content,
+    or size — an attacker could upload a .php webshell, a disguised executable,
+    or a multi-GB file to exhaust disk space.
+
+    The fix enforces:
+    1. File size ≤ 2 MB
+    2. Extension whitelist: jpg/jpeg/png/gif/webp
+    3. Magic-byte verification matching the declared extension
+    4. UUID-based filename replacement to prevent path traversal
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="uploaduser", password="UploadPass1!"
+        )
+        self.profile, _ = Profile.objects.get_or_create(user=self.user)
+        self.upload_url = reverse("uwamahoro_joseline:upload_avatar")
+        self.client.login(username="uploaduser", password="UploadPass1!")
+
+    # ── Happy-path uploads ────────────────────────────────────────────────────
+
+    def test_valid_jpeg_upload_accepted(self):
+        """A real JPEG with .jpg extension is accepted and saved."""
+        f = _make_file("photo.jpg", _JPEG_MAGIC, "image/jpeg")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:profile"),
+                             fetch_redirect_response=False)
+        self.profile.refresh_from_db()
+        self.assertTrue(bool(self.profile.avatar))
+
+    def test_valid_png_upload_accepted(self):
+        """A PNG file with correct magic bytes is accepted."""
+        f = _make_file("image.png", _PNG_MAGIC, "image/png")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:profile"),
+                             fetch_redirect_response=False)
+
+    def test_valid_gif_upload_accepted(self):
+        """A GIF file with correct magic bytes is accepted."""
+        f = _make_file("anim.gif", _GIF_MAGIC, "image/gif")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:profile"),
+                             fetch_redirect_response=False)
+
+    def test_valid_webp_upload_accepted(self):
+        """A WebP file with correct magic bytes is accepted."""
+        f = _make_file("img.webp", _WEBP_MAGIC, "image/webp")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:profile"),
+                             fetch_redirect_response=False)
+
+    # ── Extension rejection ───────────────────────────────────────────────────
+
+    def test_php_extension_rejected(self):
+        """A .php file is rejected even if it contains image bytes."""
+        f = _make_file("shell.php", _JPEG_MAGIC, "image/jpeg")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 200)  # re-renders form with error
+        avatar_errors = response.context["form"].errors.get("avatar", [])
+        self.assertTrue(any("Unsupported file extension '.php'." in e for e in avatar_errors))
+
+    def test_html_extension_rejected(self):
+        """A .html phishing page is rejected."""
+        f = _make_file("page.html", b"<html>phish</html>", "text/html")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 200)
+        avatar_errors = response.context["form"].errors.get("avatar", [])
+        self.assertTrue(any("Unsupported file extension '.html'." in e for e in avatar_errors))
+
+    def test_exe_extension_rejected(self):
+        """A .exe binary is rejected."""
+        f = _make_file("malware.exe", b"MZ" + b"\x00" * 100, "application/octet-stream")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 200)
+        avatar_errors = response.context["form"].errors.get("avatar", [])
+        self.assertTrue(any("Unsupported file extension '.exe'." in e for e in avatar_errors))
+
+    # ── Magic-byte rejection ──────────────────────────────────────────────────
+
+    def test_disguised_executable_rejected(self):
+        """A .jpg file whose content is actually a PE binary is rejected."""
+        pe_bytes = b"MZ" + b"\x00" * 100  # Windows PE header
+        f = _make_file("evil.jpg", pe_bytes, "image/jpeg")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response, "form", "avatar",
+                             "File content does not match an allowed image format.")
+
+    def test_text_file_with_jpg_extension_rejected(self):
+        """Plain text masquerading as .jpg is rejected by magic-byte check."""
+        f = _make_file("fake.jpg", b"This is not an image", "image/jpeg")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response, "form", "avatar",
+                             "File content does not match an allowed image format.")
+
+    # ── Size limit ────────────────────────────────────────────────────────────
+
+    def test_oversized_file_rejected(self):
+        """A file exceeding 2 MB is rejected before touching disk."""
+        oversized = _JPEG_MAGIC + b"\x00" * (2 * 1024 * 1024 + 1)
+        f = _make_file("big.jpg", oversized, "image/jpeg")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response, "form", "avatar",
+                             "Avatar file too large (max 2 MB).")
+
+    def test_file_at_size_limit_accepted(self):
+        """A file exactly at 2 MB is accepted."""
+        # Build content: JPEG magic + padding up to exactly 2 MB
+        limit = 2 * 1024 * 1024
+        content = _JPEG_MAGIC + b"\x00" * (limit - len(_JPEG_MAGIC))
+        f = _make_file("max.jpg", content, "image/jpeg")
+        response = self.client.post(self.upload_url, {"avatar": f})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:profile"),
+                             fetch_redirect_response=False)
+
+    # ── Filename sanitisation ─────────────────────────────────────────────────
+
+    def test_uploaded_filename_replaced_with_uuid(self):
+        """The stored filename must be a UUID, not the original user-supplied name."""
+        f = _make_file("../../etc/passwd.jpg", _JPEG_MAGIC, "image/jpeg")
+        self.client.post(self.upload_url, {"avatar": f})
+        self.profile.refresh_from_db()
+        stored_name = self.profile.avatar.name.split("/")[-1]
+        self.assertRegex(stored_name, r"^[0-9a-f]{32}\.jpg$",
+                         "Stored filename should be a hex UUID with .jpg extension")
+
+    # ── Authentication gate ───────────────────────────────────────────────────
+
+    def test_unauthenticated_user_redirected(self):
+        """Unauthenticated access to the upload view redirects to login."""
+        client = Client()
+        f = _make_file("photo.jpg", _JPEG_MAGIC, "image/jpeg")
+        response = client.post(self.upload_url, {"avatar": f})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("login", response["Location"])
+
+    # ── Audit logging ─────────────────────────────────────────────────────────
+
+    def test_successful_upload_emits_audit_log(self):
+        """A valid upload emits an AVATAR_UPLOADED audit record."""
+        f = _make_file("photo.jpg", _JPEG_MAGIC, "image/jpeg")
+        with self.assertLogs(AUDIT_LOGGER, level="INFO") as log:
+            self.client.post(self.upload_url, {"avatar": f})
+        self.assertTrue(any("AVATAR_UPLOADED" in m for m in log.output))
+        self.assertTrue(any("uploaduser" in m for m in log.output))
+
+    def test_rejected_upload_emits_audit_warning(self):
+        """A rejected upload emits an AVATAR_UPLOAD_REJECTED audit warning."""
+        f = _make_file("shell.php", _JPEG_MAGIC, "image/jpeg")
+        with self.assertLogs(AUDIT_LOGGER, level="WARNING") as log:
+            self.client.post(self.upload_url, {"avatar": f})
+        self.assertTrue(any("AVATAR_UPLOAD_REJECTED" in m for m in log.output))

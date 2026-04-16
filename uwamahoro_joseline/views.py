@@ -315,18 +315,37 @@ def profile_view(request):
 @login_required
 def upload_avatar(request):
     """
-    INSECURE: accepts any uploaded file without type, extension, size,
-    or content validation. An attacker can upload a .php webshell, an
-    .html phishing page, or a multi-GB file.
+    Secure avatar upload view.
+
+    File Upload Fix:
+    - AvatarUploadForm.clean_avatar() enforces a 2 MB size limit, an
+      extension whitelist (jpg/jpeg/png/gif/webp), and magic-byte
+      verification so disguised executables are rejected before hitting disk.
+    - The original filename is replaced with a UUID-based name to prevent
+      path traversal and filename-based attacks.
+    - All upload attempts (success and failure) are written to the audit log.
     """
     profile, _ = Profile.objects.get_or_create(user=request.user)
     if request.method == "POST":
         form = AvatarUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            profile.avatar = form.cleaned_data["avatar"]  # no validation at all
+            profile.avatar = form.cleaned_data["avatar"]
             profile.save()
+            audit_log.info(
+                "AVATAR_UPLOADED username=%s ip=%s filename=%s",
+                request.user.username,
+                get_client_ip(request),
+                profile.avatar.name,
+            )
             messages.success(request, "Avatar uploaded.")
             return redirect("uwamahoro_joseline:profile")
+        else:
+            audit_log.warning(
+                "AVATAR_UPLOAD_REJECTED username=%s ip=%s errors=%s",
+                request.user.username,
+                get_client_ip(request),
+                form.errors.as_text(),
+            )
     else:
         form = AvatarUploadForm()
     return render(request, "uwamahoro_joseline/upload_avatar.html", {"form": form})
