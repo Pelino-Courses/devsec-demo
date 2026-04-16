@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <style>
+        body { font-family: Arial; max-width: 400px; margin: 50px auto; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input, button { padding: 10px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Login</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <p class="{% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Login</button>
+    </form>
+    
+    <p>Don't have an account? <a href="{% url 'register' %}">Register here</a></p>
+</body>
+</html>

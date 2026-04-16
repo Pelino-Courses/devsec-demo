@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; }
+        .profile-card { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+        a { color: #007bff; text-decoration: none; margin-right: 15px; }
+        .logout-form { display: inline; }
+        form { display: inline; }
+        button { background-color: #dc3545; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>My Profile</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="profile-card">
+        <h2>{{ profile.user.username }}</h2>
+        <p><strong>Role:</strong> {{ profile.role }}</p>
+        <p><strong>Member Since:</strong> {{ profile.created_at|date:"Y-m-d" }}</p>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <a href="{% url 'profile' %}">View My Profile</a>
+        {% if profile.role == 'admin' %}
+            <a href="{% url 'admin_dashboard' %}">Admin Dashboard</a>
+        {% endif %}
+        {% if profile.role in 'editor,admin' %}
+            <a href="{% url 'editor_panel' %}">Editor Panel</a>
+        {% endif %}
+        
+        <form method="post" action="{% url 'logout' %}" class="logout-form">
+            {% csrf_token %}
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+</body>
+</html>
