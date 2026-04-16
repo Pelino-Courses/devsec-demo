@@ -1,0 +1,12 @@
+{% extends 'ndayishimiye/base.html' %}
+{% block title %}Upload Avatar{% endblock %}
+{% block content %}
+<h2>Upload Avatar</h2>
+<p>Allowed types: JPG, JPEG, PNG, GIF. Maximum size: 5MB.</p>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Upload Avatar</button>
+</form>
+<p><a href="{% url 'ndayishimiye:profile' %}">Back to Profile</a></p>
+{% endblock %}
