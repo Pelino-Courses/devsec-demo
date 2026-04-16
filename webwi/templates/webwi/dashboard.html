@@ -1,0 +1,81 @@
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card">
+    <h1>Authenticated Dashboard</h1>
+    <p class="lead">Hello {{ request.user.get_full_name|default:request.user.username }}, your session is active.</p>
+
+    <div class="grid">
+        <div class="field">
+            <label>Username</label>
+            <input class="input" value="{{ request.user.username }}" readonly>
+        </div>
+        <div class="field">
+            <label>Email</label>
+            <input class="input" value="{{ request.user.email|default:'No email set yet' }}" readonly>
+        </div>
+    </div>
+
+    <div class="quick-links">
+        <a href="{% url 'webwi:profile' %}">Update profile details</a>
+        <a href="{% url 'webwi:password_change' %}">Change account password</a>
+        {% if request.user.is_staff or request.user.is_superuser or perms.webwi.view_user_directory %}
+        <a href="{% url 'webwi:user_directory' %}">View user directory</a>
+        {% endif %}
+        {% if request.user.is_staff %}
+        <a href="/admin/">Open Django admin</a>
+        {% endif %}
+    </div>
+
+    <div class="field" style="margin-top:1.5rem;">
+        <label for="display-name-input">Display Name <small>(quick update)</small></label>
+        <div style="display:flex;gap:.5rem;align-items:center;">
+            <input id="display-name-input" class="input" style="max-width:20rem;"
+                   value="{{ request.user.profile.display_name|default:'' }}"
+                   placeholder="Set a display name">
+            <button id="display-name-save" class="btn" type="button">Save</button>
+        </div>
+        <p id="display-name-msg" style="margin-top:.4rem;font-size:.85rem;"></p>
+    </div>
+
+    <div class="actions">
+        <form class="logout-inline" method="post" action="{% url 'webwi:logout' %}">
+            {% csrf_token %}
+            <button class="btn" type="submit">Logout</button>
+        </form>
+    </div>
+</section>
+
+<script>
+/* Read the CSRF token from the cookie Django sets on every page load. */
+function getCsrfToken() {
+    var name = 'csrftoken=';
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i].trim();
+        if (c.indexOf(name) === 0) {
+            return c.substring(name.length);
+        }
+    }
+    return '';
+}
+
+document.getElementById('display-name-save').addEventListener('click', function () {
+    var name = document.getElementById('display-name-input').value;
+    fetch('{% url "webwi:quick_display_name_update" %}', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()   /* required by Django's CSRF middleware */
+        },
+        body: JSON.stringify({ display_name: name })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        document.getElementById('display-name-msg').textContent =
+            data.display_name !== undefined ? 'Saved: ' + data.display_name : data.error;
+    });
+});
+</script>
+{% endblock %}
