@@ -7,7 +7,9 @@
     <p><strong>Member Since:</strong> {{ profile.created_at|date:"M d, Y" }}</p>
 
     <div id="bio-section">
-        <p><strong>Bio:</strong> <span id="bio-text">{{ profile.bio|default:"No bio provided" }}</span></p>
+        {# INSECURE: |safe disables Django's auto-escaping so "rich" bio text renders as HTML. #}
+        {# Any stored <script> tag or event-handler attribute executes in every visitor's browser. #}
+        <p><strong>Bio:</strong> <span id="bio-text">{{ profile.bio|default:"No bio provided"|safe }}</span></p>
     </div>
 
     {% if profile.user == user %}
