@@ -1,0 +1,19 @@
+{% extends "igihozo/base.html" %}
+
+{% block title %}Login | Igihozo Auth Service{% endblock %}
+
+{% block content %}
+<section class="panel auth-panel">
+    <div class="panel-heading">
+        <p class="eyebrow">Authentication</p>
+        <h1>Sign in to continue</h1>
+        <p>Only authenticated users can access the account dashboard and password tools.</p>
+    </div>
+    <form method="post" novalidate class="stack">
+        {% csrf_token %}
+        {% include "igihozo/partials/form_fields.html" with form=form %}
+        <button type="submit" class="button primary full-width">Login</button>
+    </form>
+    <p class="helper-text">Need an account? <a href="{% url 'igihozo:register' %}">Register here</a>.</p>
+</section>
+{% endblock %}
