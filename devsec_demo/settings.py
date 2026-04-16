@@ -23,13 +23,33 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
+# Helper function to require environment variables in production
+def _get_required_env(key):
+    """Retrieve required environment variable; raise if missing and not in dev mode."""
+    value = os.environ.get(key)
+    if not value and not _is_development_mode():
+        raise ValueError(f'Environment variable {key} is required in production')
+    return value
+
+
+# Determine if running in development mode (default: False for safety)
+_is_development_mode = lambda: os.environ.get('DJANGO_ENV', 'production').lower() in ('development', 'dev')
+
+# SECURITY: SECRET_KEY must be set in environment; no insecure default for production
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if _is_development_mode():
+        # Development fallback for local testing only
+        SECRET_KEY = 'django-insecure-dev-key-unsafe-for-production'
+    else:
+        raise ValueError('DJANGO_SECRET_KEY environment variable is required in production')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+# SECURITY: DEBUG defaults to False; explicitly enable only in development
+DEBUG = _is_development_mode()
 
-ALLOWED_HOSTS = []
+# SECURITY: ALLOWED_HOSTS restricted by default; override explicitly for production
+_default_allowed = ['127.0.0.1', 'localhost', '[::1]'] if _is_development_mode() else []
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split() or _default_allowed
 
 
 # Application definition
@@ -41,6 +61,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'uwase05.apps.Uwase05Config',
 ]
 
 MIDDLEWARE = [
@@ -58,7 +79,7 @@ ROOT_URLCONF = 'devsec_demo.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -69,6 +90,10 @@ TEMPLATES = [
         },
     },
 ]
+
+LOGIN_REDIRECT_URL = 'uwase05:dashboard'
+LOGOUT_REDIRECT_URL = 'uwase05:login'
+LOGIN_URL = 'uwase05:login'
 
 WSGI_APPLICATION = 'devsec_demo.wsgi.application'
 
@@ -119,3 +144,47 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# SECURITY: Enforce HTTPS in production (requires reverse proxy or HTTPS server)
+if not _is_development_mode():
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# SECURITY: Secure cookie settings (also safe in development)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Strict'
+CSRF_COOKIE_SAMESITE = 'Strict'
+
+# SECURITY: Security headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_SECURITY_POLICY = {
+    'default-src': ("'self'",),
+    'script-src': ("'self'",),
+    'style-src': ("'self'", "'unsafe-inline'"),
+    'img-src': ("'self'", 'data:'),
+}
+X_FRAME_OPTIONS = 'DENY'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'uwase05.audit': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

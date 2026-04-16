@@ -1,0 +1,24 @@
+{% extends 'uwase05/base.html' %}
+
+{% block title %}Login{% endblock %}
+{% block header %}Log in to your account{% endblock %}
+
+{% block content %}
+<form method="post">
+    {% csrf_token %}
+    {% if next %}
+        <input type="hidden" name="next" value="{{ next }}" />
+    {% endif %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+        <div class="field">
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+        </div>
+    {% endfor %}
+    <button type="submit">Login</button>
+</form>
+
+<p><a href="{% url 'uwase05:password_reset' %}">Forgot your password?</a></p>
+{% endblock %}
