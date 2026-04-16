@@ -1,10 +1,9 @@
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import REDIRECT_FIELD_NAME, login, logout
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
 from django.contrib.auth.views import (
     LoginView,
-    LogoutView,
     PasswordChangeDoneView,
     PasswordChangeView,
     PasswordResetCompleteView,
@@ -22,6 +21,7 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView
 
+from .redirects import DEFAULT_POST_AUTH_REDIRECT, get_safe_redirect, get_safe_redirect_for_template
 from .authz import user_is_privileged
 from .forms import (
     AccountUpdateForm,
@@ -41,7 +41,7 @@ class HomeView(TemplateView):
 class RegisterView(FormView):
     template_name = "igihozo/register.html"
     form_class = RegistrationForm
-    success_url = reverse_lazy("igihozo:account")
+    success_url = DEFAULT_POST_AUTH_REDIRECT
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -54,11 +54,20 @@ class RegisterView(FormView):
         messages.success(self.request, "Your account has been created and you are now signed in.")
         return super().form_valid(form)
 
+    def get_success_url(self):
+        return get_safe_redirect(self.request, fallback_url=str(DEFAULT_POST_AUTH_REDIRECT))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["next_target"] = get_safe_redirect_for_template(self.request)
+        return context
+
 
 class UserLoginView(LoginView):
     template_name = "igihozo/login.html"
     authentication_form = LoginForm
     redirect_authenticated_user = True
+    redirect_field_name = REDIRECT_FIELD_NAME
 
     def dispatch(self, request, *args, **kwargs):
         self.login_identifier = (request.POST.get("username") or "").strip()
@@ -92,11 +101,27 @@ class UserLoginView(LoginView):
         return super().form_invalid(form)
 
     def get_success_url(self):
-        return self.get_redirect_url() or str(reverse_lazy("igihozo:account"))
+        return get_safe_redirect(self.request, fallback_url=str(DEFAULT_POST_AUTH_REDIRECT))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["next_target"] = get_safe_redirect_for_template(self.request)
+        return context
 
 
-class UserLogoutView(LogoutView):
+class UserLogoutView(TemplateView):
     template_name = "igihozo/logged_out.html"
+    redirect_field_name = REDIRECT_FIELD_NAME
+
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        safe_redirect = get_safe_redirect(request, fallback_url="")
+        logout(request)
+        if safe_redirect:
+            return redirect(safe_redirect)
+        return self.get(request, *args, **kwargs)
 
 
 class AccountView(LoginRequiredMixin, FormView):

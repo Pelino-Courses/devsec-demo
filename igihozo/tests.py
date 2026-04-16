@@ -503,3 +503,96 @@ class CsrfProtectionTests(TestCase):
         self.assertEqual(response.status_code, 404)
         other_user.refresh_from_db()
         self.assertEqual(other_user.email, "othercsrf@example.com")
+
+
+class OpenRedirectProtectionTests(TestCase):
+    def setUp(self):
+        self.password = "ComplexPass123!"
+        self.user = User.objects.create_user(
+            username="redirectuser",
+            email="redirect@example.com",
+            password=self.password,
+        )
+
+    def test_login_allows_safe_internal_next_redirect(self):
+        response = self.client.post(
+            f"{reverse('igihozo:login')}?next=/profiles/redirectuser/",
+            {"username": "redirectuser", "password": self.password},
+        )
+
+        self.assertRedirects(response, "/profiles/redirectuser/", fetch_redirect_response=False)
+
+    def test_login_rejects_external_next_redirect(self):
+        response = self.client.post(
+            f"{reverse('igihozo:login')}?next=https://evil.example/phish",
+            {"username": "redirectuser", "password": self.password},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("igihozo:account"),
+            fetch_redirect_response=False,
+        )
+
+    def test_registration_allows_safe_internal_next_redirect(self):
+        response = self.client.post(
+            f"{reverse('igihozo:register')}?next=/password-change/",
+            {
+                "username": "registerednext",
+                "first_name": "Redirect",
+                "last_name": "Student",
+                "email": "registerednext@example.com",
+                "display_name": "Redirect Student",
+                "bio": "Testing safe registration redirects.",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+
+        self.assertRedirects(response, "/password-change/", fetch_redirect_response=False)
+
+    def test_registration_rejects_external_next_redirect(self):
+        response = self.client.post(
+            f"{reverse('igihozo:register')}?next=https://evil.example/phish",
+            {
+                "username": "registeredfallback",
+                "first_name": "Redirect",
+                "last_name": "Fallback",
+                "email": "registeredfallback@example.com",
+                "display_name": "Redirect Fallback",
+                "bio": "Testing rejected registration redirects.",
+                "password1": "StrongPass123!",
+                "password2": "StrongPass123!",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("igihozo:account"),
+            fetch_redirect_response=False,
+        )
+
+    def test_logout_allows_safe_internal_next_redirect(self):
+        self.client.login(username="redirectuser", password=self.password)
+
+        response = self.client.post(
+            reverse("igihozo:logout"),
+            {"next": reverse("igihozo:home")},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("igihozo:home"),
+            fetch_redirect_response=False,
+        )
+
+    def test_logout_rejects_external_next_redirect(self):
+        self.client.login(username="redirectuser", password=self.password)
+
+        response = self.client.post(
+            reverse("igihozo:logout"),
+            {"next": "https://evil.example/phish"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "signed out")

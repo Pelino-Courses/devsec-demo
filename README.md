@@ -15,6 +15,7 @@ This repository now includes a Django authentication app named `igihozo` that co
 - secure password reset workflow using Django's built-in token-based reset flow
 - login throttling to reduce brute-force abuse
 - CSRF-safe AJAX profile update flow
+- safe redirect validation for authentication flows
 - admin integration for profile records
 - tests for the main authentication flows
 
@@ -113,6 +114,17 @@ The project now includes a custom AJAX profile update workflow that uses Django'
 - object-level access control still applies alongside CSRF checks
 
 This preserves the AJAX functionality while ensuring unsafe cross-site state-changing requests are rejected.
+
+## Redirect Safety
+
+Authentication-related redirect targets are now validated before use:
+
+- login and registration only honor safe internal `next` destinations
+- untrusted external redirect targets are ignored and replaced with a safe internal fallback
+- logout accepts only validated internal redirect targets when one is provided
+- user-controlled redirect values are checked with Django's allowed-host redirect utilities
+
+This keeps post-authentication navigation predictable and prevents open redirect behavior.
 
 ## Testing
 

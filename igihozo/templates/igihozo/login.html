@@ -12,10 +12,16 @@
     </div>
     <form method="post" novalidate class="stack">
         {% csrf_token %}
+        {% if next_target %}
+            <input type="hidden" name="next" value="{{ next_target }}">
+        {% endif %}
         {% include "igihozo/partials/form_fields.html" with form=form %}
         <button type="submit" class="button primary full-width">Login</button>
     </form>
     <p class="helper-text"><a href="{% url 'igihozo:password_reset' %}">Forgot your password?</a></p>
-    <p class="helper-text">Need an account? <a href="{% url 'igihozo:register' %}">Register here</a>.</p>
+    <p class="helper-text">
+        Need an account?
+        <a href="{% url 'igihozo:register' %}{% if next_target %}?next={{ next_target|urlencode }}{% endif %}">Register here</a>.
+    </p>
 </section>
 {% endblock %}
