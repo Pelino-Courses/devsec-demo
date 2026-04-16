@@ -128,3 +128,6 @@ EMAIL_BACKEND = os.environ.get(
     'django.core.mail.backends.console.EmailBackend',
 )
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@devsec-demo.local')
+LOGIN_THROTTLE_ACCOUNT_LIMIT = int(os.environ.get('DJANGO_LOGIN_THROTTLE_ACCOUNT_LIMIT', '5'))
+LOGIN_THROTTLE_IP_LIMIT = int(os.environ.get('DJANGO_LOGIN_THROTTLE_IP_LIMIT', '10'))
+LOGIN_THROTTLE_WINDOW_SECONDS = int(os.environ.get('DJANGO_LOGIN_THROTTLE_WINDOW_SECONDS', '300'))

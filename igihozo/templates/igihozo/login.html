@@ -8,6 +8,7 @@
         <p class="eyebrow">Authentication</p>
         <h1>Sign in to continue</h1>
         <p>Only authenticated users can access the account dashboard and password tools.</p>
+        <p class="helper-text">Repeated failed login attempts trigger a temporary cooldown to slow brute-force abuse.</p>
     </div>
     <form method="post" novalidate class="stack">
         {% csrf_token %}

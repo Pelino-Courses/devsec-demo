@@ -28,6 +28,7 @@ from .forms import (
     StyledPasswordResetForm,
     StyledSetPasswordForm,
 )
+from .throttling import clear_login_throttle, get_client_ip, get_login_throttle_state, register_failed_login
 
 
 class HomeView(TemplateView):
@@ -56,9 +57,36 @@ class UserLoginView(LoginView):
     authentication_form = LoginForm
     redirect_authenticated_user = True
 
+    def dispatch(self, request, *args, **kwargs):
+        self.login_identifier = (request.POST.get("username") or "").strip()
+        self.client_ip = get_client_ip(request)
+        self.throttle_state = get_login_throttle_state(self.login_identifier, self.client_ip)
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if self.throttle_state["is_blocked"]:
+            form = self.get_form()
+            form.add_error(
+                None,
+                (
+                    "Too many failed sign-in attempts were detected. "
+                    f"Please wait about {self.throttle_state['remaining_seconds']} seconds and try again."
+                ),
+            )
+            response = self.form_invalid(form)
+            response.status_code = 429
+            return response
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
+        clear_login_throttle(self.login_identifier or form.get_user().get_username(), self.client_ip)
         messages.success(self.request, "Welcome back. You have signed in successfully.")
         return super().form_valid(form)
+
+    def form_invalid(self, form):
+        if self.request.method == "POST" and not self.throttle_state["is_blocked"]:
+            register_failed_login(self.login_identifier, self.client_ip)
+        return super().form_invalid(form)
 
     def get_success_url(self):
         return self.get_redirect_url() or str(reverse_lazy("igihozo:account"))

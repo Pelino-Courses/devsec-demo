@@ -13,6 +13,7 @@ This repository now includes a Django authentication app named `igihozo` that co
 - role-based access control for anonymous, authenticated, and privileged users
 - object-level profile protection to prevent IDOR-style access
 - secure password reset workflow using Django's built-in token-based reset flow
+- login throttling to reduce brute-force abuse
 - admin integration for profile records
 - tests for the main authentication flows
 
@@ -87,6 +88,17 @@ The project uses Django's built-in password reset utilities instead of a custom 
 - password reset confirmation reuses Django's password validation rules
 - invalid or reused reset links are handled safely with a clear recovery path
 - email delivery defaults to the console backend locally and is testable with Django's mail tools
+
+## Login Brute-Force Protection
+
+The login workflow includes a simple, auditable throttle using Django's cache:
+
+- failed attempts are tracked by both username and client IP
+- repeated failures trigger a temporary cooldown instead of unlimited retries
+- successful login clears the tracked failures for that username and IP
+- the response remains understandable for legitimate users by showing a clear temporary wait message
+
+This keeps the protection easy to test and explain while adding practical resistance to repeated credential guessing.
 
 ## Testing
 

@@ -1,4 +1,5 @@
 from django.contrib.auth.models import Group, Permission, User
+from django.core.cache import cache
 from django.core import mail
 from django.test import TestCase
 from django.test import override_settings
@@ -353,3 +354,74 @@ class PasswordResetFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "invalid or has already been used")
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    LOGIN_THROTTLE_ACCOUNT_LIMIT=3,
+    LOGIN_THROTTLE_IP_LIMIT=6,
+    LOGIN_THROTTLE_WINDOW_SECONDS=120,
+)
+class LoginBruteForceProtectionTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.password = "ComplexPass123!"
+        self.user = User.objects.create_user(
+            username="throttleuser",
+            email="throttle@example.com",
+            password=self.password,
+        )
+
+    def test_normal_login_still_works_before_threshold(self):
+        response = self.client.post(
+            reverse("igihozo:login"),
+            {"username": "throttleuser", "password": self.password},
+            follow=True,
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("igihozo:profile_edit", kwargs={"username": "throttleuser"}),
+        )
+
+    def test_repeated_failed_login_attempts_trigger_temporary_block(self):
+        for _ in range(3):
+            self.client.post(
+                reverse("igihozo:login"),
+                {"username": "throttleuser", "password": "WrongPassword123!"},
+            )
+
+        blocked_response = self.client.post(
+            reverse("igihozo:login"),
+            {"username": "throttleuser", "password": self.password},
+        )
+
+        self.assertEqual(blocked_response.status_code, 429)
+        self.assertContains(blocked_response, "Too many failed sign-in attempts", status_code=429)
+        self.assertFalse(blocked_response.wsgi_request.user.is_authenticated)
+
+    def test_successful_login_clears_previous_failure_count(self):
+        for _ in range(2):
+            self.client.post(
+                reverse("igihozo:login"),
+                {"username": "throttleuser", "password": "WrongPassword123!"},
+            )
+
+        success_response = self.client.post(
+            reverse("igihozo:login"),
+            {"username": "throttleuser", "password": self.password},
+            follow=True,
+        )
+        self.assertRedirects(
+            success_response,
+            reverse("igihozo:profile_edit", kwargs={"username": "throttleuser"}),
+        )
+        self.client.post(reverse("igihozo:logout"))
+
+        follow_up_failure = self.client.post(
+            reverse("igihozo:login"),
+            {"username": "throttleuser", "password": "WrongPassword123!"},
+        )
+
+        self.assertEqual(follow_up_failure.status_code, 200)
+        self.assertNotContains(follow_up_failure, "Too many failed sign-in attempts")
