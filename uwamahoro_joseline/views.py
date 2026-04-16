@@ -1,3 +1,6 @@
+import json
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -5,11 +8,12 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, Pa
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import PasswordResetView, PasswordResetConfirmView, PasswordResetDoneView, PasswordResetCompleteView
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
-from datetime import timedelta
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.csrf import csrf_exempt
 
 from .decorators import instructor_required
 from .forms import RegistrationForm
@@ -249,6 +253,28 @@ def profile_view(request):
     """Display the current user's profile. Only accessible to the profile owner."""
     profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, "uwamahoro_joseline/profile.html", {"profile": profile})
+
+
+@csrf_exempt  # INSECURE: exempts CSRF validation so AJAX "just works" — must be fixed
+@login_required
+def update_bio(request):
+    """
+    AJAX endpoint to update the user's bio.
+
+    VULNERABILITY: @csrf_exempt disables CSRF validation entirely, allowing any
+    cross-origin POST to silently update the bio on behalf of an authenticated user.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    try:
+        data = json.loads(request.body)
+        bio = data.get("bio", "").strip()
+    except (json.JSONDecodeError, KeyError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    profile, _ = Profile.objects.get_or_create(user=request.user)
+    profile.bio = bio
+    profile.save()
+    return JsonResponse({"status": "ok", "bio": profile.bio})
 
 
 @login_required

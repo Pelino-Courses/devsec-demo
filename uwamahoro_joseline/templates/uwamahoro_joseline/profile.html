@@ -4,10 +4,53 @@
 <div class="card">
     <h1>{{ profile.user.username }}'s Profile</h1>
     <p><strong>Email:</strong> {{ profile.user.email }}</p>
-    <p><strong>Bio:</strong> {{ profile.bio|default:"No bio provided" }}</p>
     <p><strong>Member Since:</strong> {{ profile.created_at|date:"M d, Y" }}</p>
+
+    <div id="bio-section">
+        <p><strong>Bio:</strong> <span id="bio-text">{{ profile.bio|default:"No bio provided" }}</span></p>
+    </div>
+
     {% if profile.user == user %}
-        <p><a href="{% url 'edit_user_account' profile.user.id %}">Edit account</a></p>
+        <div id="bio-editor" style="margin-top:1rem;">
+            <label for="bio-input"><strong>Update Bio:</strong></label><br>
+            <textarea id="bio-input" rows="3" style="width:100%;padding:0.5rem;border:1px solid #ddd;border-radius:4px;margin-top:0.5rem;">{{ profile.bio }}</textarea><br>
+            <button id="bio-save-btn" style="margin-top:0.5rem;background:#667eea;color:white;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;">Save Bio</button>
+            <span id="bio-status" style="margin-left:0.75rem;font-size:0.9rem;"></span>
+        </div>
+
+        {# NOTE: The CSRF token is rendered here but NOT passed to the fetch call below. #}
+        {# This was an oversight during development that relied on @csrf_exempt to "fix" it. #}
+        {% csrf_token %}
+
+        <script>
+        document.getElementById('bio-save-btn').addEventListener('click', function () {
+            const bio = document.getElementById('bio-input').value;
+            const statusEl = document.getElementById('bio-status');
+            statusEl.textContent = 'Saving…';
+
+            // INSECURE: fetch sends JSON without the X-CSRFToken header.
+            // This only works because the view is decorated with @csrf_exempt.
+            fetch("{% url 'uwamahoro_joseline:update_bio' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bio: bio }),
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    document.getElementById('bio-text').textContent = data.bio || 'No bio provided';
+                    statusEl.style.color = 'green';
+                    statusEl.textContent = 'Saved!';
+                } else {
+                    statusEl.style.color = 'red';
+                    statusEl.textContent = 'Error: ' + (data.error || 'unknown');
+                }
+            })
+            .catch(() => { statusEl.style.color = 'red'; statusEl.textContent = 'Request failed.'; });
+        });
+        </script>
+
+        <p style="margin-top:1rem;"><a href="{% url 'uwamahoro_joseline:edit_user_account' profile.user.id %}">Edit account details</a></p>
     {% endif %}
 </div>
 {% endblock %}
