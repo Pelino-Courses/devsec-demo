@@ -24,12 +24,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+# If DJANGO_SECRET_KEY is missing, we fail explicitly to avoid running with a default or empty key in production.
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY environment variable is not set!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG')
+# Cast to boolean correctly from string env var.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+# In production, ALLOWED_HOSTS must be populated.
+# Provide a comma-separated list in the DJANGO_ALLOWED_HOSTS env var.
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
+if not DEBUG and not any(ALLOWED_HOSTS):
+    raise ValueError("DJANGO_ALLOWED_HOSTS must be set in production (DEBUG=False)")
+# Default to allow localhost for dev if empty in dev mode
+if DEBUG and not any(ALLOWED_HOSTS):
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+# CSRF Trusted Origins (required for Django 4.0+ when using HTTPS)
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o]
+if not DEBUG and not any(CSRF_TRUSTED_ORIGINS):
+    # In production we should have explicit origins, but let's not break purely local deployments just yet
+    pass
 
 
 # Application definition
@@ -41,6 +58,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'aline',  # Our authentication app
 ]
 
 MIDDLEWARE = [
@@ -52,6 +70,46 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# --- PRODUCTION SECURITY SETTINGS ---
+# These settings harden the application for deployment.
+
+if not DEBUG:
+    # 1. SSL/HTTPS Enforcement
+    # Redirect all HTTP requests to HTTPS
+    SECURE_SSL_REDIRECT = True
+    
+    # Ensure session and CSRF cookies are only sent over HTTPS
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    
+    # 2. HTTP Strict Transport Security (HSTS)
+    # Tell browsers to only use HTTPS for this domain for 1 year
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # 3. Security Headers
+    # Enable browser XSS filter
+    SECURE_BROWSER_XSS_FILTER = True
+    # Prevent browser from guessing content types (Prevents MIME sniffing)
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    # Prevent the site from being embedded in a frame (Clickjacking protection)
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # 4. Proxy SSL Header
+    # If the app is behind a reverse proxy (like Nginx/Heroku), this helps Django 
+    # detect that the request was originally HTTPS.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 5. Cookie Hygiene (Always good, even in dev)
+# Prevent client-side JS from accessing the session cookie
+SESSION_COOKIE_HTTPONLY = True
+# Use Lax SameSite policy to mitigate CSRF while allowing standard navigation
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False # Usually False so JS can read it for CSRF protection
+# ------------------------------------
 
 ROOT_URLCONF = 'devsec_demo.urls'
 
@@ -119,3 +177,50 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Authentication and redirection settings
+LOGIN_URL = 'aline:login'  # Redirect to login if not authenticated
+LOGIN_REDIRECT_URL = 'aline:dashboard'  # After login, go to dashboard
+LOGOUT_REDIRECT_URL = 'aline:home'  # After logout, go to home
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Email configuration for development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'webmaster@localhost'
+
+# Media files (User-uploaded content)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# File upload constraints (DoS mitigation)
+# 2.5MB for in-memory, larger files go to disk
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440 
+# Total request size limit (10MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
+
+# Audit Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '[{asctime}] AUDIT {levelname}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console_audit': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+    },
+    'loggers': {
+        'aline.audit': {
+            'handlers': ['console_audit'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
