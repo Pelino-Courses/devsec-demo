@@ -1,0 +1,61 @@
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card">
+    <h1>My Profile</h1>
+    <p class="lead">Manage both your account details and public profile in one place.</p>
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+            {{ form.non_field_errors }}
+        {% endif %}
+
+        <div class="grid">
+            <div class="field">
+                <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                {{ form.first_name }}
+                {{ form.first_name.errors }}
+            </div>
+
+            <div class="field">
+                <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                {{ form.last_name }}
+                {{ form.last_name.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.display_name.id_for_label }}">{{ form.display_name.label }}</label>
+                {{ form.display_name }}
+                {{ form.display_name.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.bio.id_for_label }}">{{ form.bio.label }}</label>
+                {{ form.bio }}
+                {{ form.bio.errors }}
+            </div>
+
+            <div class="field full">
+                <label for="{{ form.avatar.id_for_label }}">Avatar</label>
+                {% if profile.avatar %}
+                    <p class="helptext">Current: <a href="{% url 'webwi:avatar_serve' profile.avatar.name %}">{{ profile.avatar.name }}</a></p>
+                {% endif %}
+                {{ form.avatar }}
+                {{ form.avatar.errors }}
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" type="submit">Save profile</button>
+            <a class="btn-ghost" href="{% url 'webwi:dashboard' %}">Back to dashboard</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

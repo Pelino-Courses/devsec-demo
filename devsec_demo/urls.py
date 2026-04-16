@@ -15,8 +15,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', include('webwi.urls')),
+    # Media files are served through the authenticated avatar_serve view in webwi.urls,
+    # not via static() — so unauthenticated users cannot access uploaded files.
 ]

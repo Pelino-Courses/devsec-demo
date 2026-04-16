@@ -1,0 +1,20 @@
+{% extends 'webwi/base.html' %}
+
+{% block content %}
+<section class="card">
+    {# Auto-escaping is active: {{ var }} HTML-encodes <, >, ", ', & #}
+    <h1>{{ profile.display_name|default:request.user.username }}</h1>
+    <p class="lead">@{{ request.user.username }}</p>
+
+    {% if profile.bio %}
+        <div class="bio-content">{{ profile.bio }}</div>
+    {% else %}
+        <p class="helptext">No bio set yet.</p>
+    {% endif %}
+
+    <div class="actions">
+        <a class="btn" href="{% url 'webwi:profile' %}">Edit profile</a>
+        <a class="btn-ghost" href="{% url 'webwi:dashboard' %}">Dashboard</a>
+    </div>
+</section>
+{% endblock %}

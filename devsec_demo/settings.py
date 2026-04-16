@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'webwi',
 ]
 
 MIDDLEWARE = [
@@ -58,7 +59,7 @@ ROOT_URLCONF = 'devsec_demo.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -119,3 +120,49 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Media files — uploaded user content
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGIN_URL = 'webwi:login'
+LOGIN_REDIRECT_URL = 'webwi:dashboard'
+LOGOUT_REDIRECT_URL = 'webwi:login'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Email — defaults to console for development; set EMAIL_BACKEND env var in production
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@uas.local')
+
+# Password-reset tokens expire after 1 hour
+PASSWORD_RESET_TIMEOUT = 3600
+
+# Audit logging — routes the webwi.audit logger to the console.
+# In production, point the handler at a file or a SIEM-compatible sink.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '%(asctime)s [AUDIT] %(levelname)s %(message)s',
+            'datefmt': '%Y-%m-%dT%H:%M:%S',
+        },
+    },
+    'handlers': {
+        'audit_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+    },
+    'loggers': {
+        'webwi.audit': {
+            'handlers': ['audit_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
