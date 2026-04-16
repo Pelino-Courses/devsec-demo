@@ -17,7 +17,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .models import LoginAttempt
-from .views import get_client_ip, record_login_attempt, get_throttle_status
+from .views import record_login_attempt, get_throttle_status
 
 
 class LoginAttemptModelTests(TestCase):
@@ -374,7 +374,7 @@ class LoginViewBruteForceTests(TestCase):
     
     def test_different_users_independent_throttling(self):
         """Test that throttling is per-user, not global."""
-        user2 = User.objects.create_user(username="testuser2", password="testpass456")
+        User.objects.create_user(username="testuser2", password="testpass456")
         
         # Throttle first user
         for _ in range(3):
