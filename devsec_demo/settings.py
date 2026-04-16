@@ -123,3 +123,8 @@ STATIC_URL = 'static/'
 
 LOGIN_URL = 'igihozo:login'
 LOGIN_REDIRECT_URL = 'igihozo:account'
+EMAIL_BACKEND = os.environ.get(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@devsec-demo.local')

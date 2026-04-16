@@ -12,6 +12,7 @@ This repository now includes a Django authentication app named `igihozo` that co
 - basic profile/account management
 - role-based access control for anonymous, authenticated, and privileged users
 - object-level profile protection to prevent IDOR-style access
+- secure password reset workflow using Django's built-in token-based reset flow
 - admin integration for profile records
 - tests for the main authentication flows
 
@@ -47,6 +48,8 @@ venv\Scripts\python.exe manage.py runserver
 - `/profiles/<username>/edit/` protected profile edit with object-level authorization
 - `/privileged-dashboard/` privileged-only authorization dashboard
 - `/password-change/` password update
+- `/password-reset/` password reset request
+- `/reset/<uidb64>/<token>/` secure password reset confirmation
 - `/admin/` Django admin
 
 ## Authorization Strategy
@@ -74,6 +77,16 @@ The profile and account-management flows now use explicit object-level checks fo
 - profile objects are filtered against the current authenticated user where appropriate
 
 This removes the insecure assumption that being logged in is enough to access any user-scoped URL.
+
+## Password Reset Strategy
+
+The project uses Django's built-in password reset utilities instead of a custom token system:
+
+- reset requests use Django's token-based password reset flow
+- reset request messaging stays neutral to reduce user enumeration risk
+- password reset confirmation reuses Django's password validation rules
+- invalid or reused reset links are handled safely with a clear recovery path
+- email delivery defaults to the console backend locally and is testable with Django's mail tools
 
 ## Testing
 

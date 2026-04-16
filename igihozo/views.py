@@ -2,7 +2,16 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import User
-from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeDoneView, PasswordChangeView
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordChangeDoneView,
+    PasswordChangeView,
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+)
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
@@ -11,7 +20,14 @@ from django.urls import reverse_lazy
 from django.views.generic import FormView, TemplateView
 
 from .authz import user_is_privileged
-from .forms import AccountUpdateForm, LoginForm, RegistrationForm, StyledPasswordChangeForm
+from .forms import (
+    AccountUpdateForm,
+    LoginForm,
+    RegistrationForm,
+    StyledPasswordChangeForm,
+    StyledPasswordResetForm,
+    StyledSetPasswordForm,
+)
 
 
 class HomeView(TemplateView):
@@ -161,6 +177,28 @@ class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
 class UserPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
     template_name = "igihozo/password_change_done.html"
     login_url = reverse_lazy("igihozo:login")
+
+
+class UserPasswordResetView(PasswordResetView):
+    template_name = "igihozo/password_reset_form.html"
+    email_template_name = "igihozo/emails/password_reset_email.txt"
+    subject_template_name = "igihozo/emails/password_reset_subject.txt"
+    success_url = reverse_lazy("igihozo:password_reset_done")
+    form_class = StyledPasswordResetForm
+
+
+class UserPasswordResetDoneView(PasswordResetDoneView):
+    template_name = "igihozo/password_reset_done.html"
+
+
+class UserPasswordResetConfirmView(PasswordResetConfirmView):
+    template_name = "igihozo/password_reset_confirm.html"
+    success_url = reverse_lazy("igihozo:password_reset_complete")
+    form_class = StyledSetPasswordForm
+
+
+class UserPasswordResetCompleteView(PasswordResetCompleteView):
+    template_name = "igihozo/password_reset_complete.html"
 
 
 class PrivilegedAccessMixin(LoginRequiredMixin, UserPassesTestMixin):

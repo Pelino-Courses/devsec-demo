@@ -1,6 +1,11 @@
 from django.contrib.auth.models import Group, Permission, User
+from django.core import mail
 from django.test import TestCase
+from django.test import override_settings
 from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.contrib.auth.tokens import default_token_generator
 
 
 class AuthenticationFlowTests(TestCase):
@@ -280,3 +285,71 @@ class IdorProtectionTests(TestCase):
         )
         self.other_user.refresh_from_db()
         self.assertEqual(self.other_user.email, "reviewed@example.com")
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PasswordResetFlowTests(TestCase):
+    def setUp(self):
+        self.password = "ComplexPass123!"
+        self.user = User.objects.create_user(
+            username="resetuser",
+            email="reset@example.com",
+            password=self.password,
+        )
+
+    def test_password_reset_request_sends_email_for_existing_user(self):
+        response = self.client.post(
+            reverse("igihozo:password_reset"),
+            {"email": "reset@example.com"},
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("igihozo:password_reset_done"))
+        self.assertContains(response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/reset/", mail.outbox[0].body)
+
+    def test_password_reset_request_does_not_leak_unknown_email(self):
+        response = self.client.post(
+            reverse("igihozo:password_reset"),
+            {"email": "missing@example.com"},
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("igihozo:password_reset_done"))
+        self.assertContains(response, "If an account exists")
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_password_reset_confirm_updates_password(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        confirm_url = reverse(
+            "igihozo:password_reset_confirm",
+            kwargs={"uidb64": uid, "token": token},
+        )
+
+        initial_response = self.client.get(confirm_url, follow=True)
+        post_url = initial_response.request["PATH_INFO"]
+
+        response = self.client.post(
+            post_url,
+            {
+                "new_password1": "BrandNewStrong123!",
+                "new_password2": "BrandNewStrong123!",
+            },
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("igihozo:password_reset_complete"))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("BrandNewStrong123!"))
+
+    def test_password_reset_confirm_rejects_invalid_token(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+
+        response = self.client.get(
+            reverse("igihozo:password_reset_confirm", kwargs={"uidb64": uid, "token": "invalid-token"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "invalid or has already been used")
