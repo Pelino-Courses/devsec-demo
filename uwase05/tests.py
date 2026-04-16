@@ -246,6 +246,18 @@ class AuthenticationFlowTests(TestCase):
         self.assertContains(response, 'Tester bio')
         self.assertNotContains(response, 'Other bio')
 
+    def test_profile_bio_is_escaped_to_prevent_stored_xss(self):
+        profile = self.user.profile
+        profile.bio = '<script>alert("xss")</script>Malicious content'
+        profile.save()
+
+        self.client.login(username='tester', password='StrongPass123')
+        response = self.client.get(self.profile_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;Malicious content')
+        self.assertNotContains(response, '<script>alert("xss")</script>')
+
     def test_standard_user_cannot_access_instructor_area(self):
         self.client.login(username='tester', password='StrongPass123')
         response = self.client.get(self.instructor_url)

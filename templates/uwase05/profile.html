@@ -4,7 +4,7 @@
 {% block header %}Profile{% endblock %}
 
 {% block content %}
-<p>Username: {{ user.username }}</p>
-<p>Email: {{ user.email }}</p>
-<p>Bio: {{ profile.bio|default:'No bio provided.' }}</p>
+<p>Username: {{ user.username|escape }}</p>
+<p>Email: {{ user.email|escape }}</p>
+<p>Bio: {{ profile.bio|default:'No bio provided.'|escape }}</p>
 {% endblock %}
