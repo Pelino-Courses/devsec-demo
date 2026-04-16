@@ -1,0 +1,128 @@
+{% extends "igihozo/base.html" %}
+
+{% block title %}Account | Igihozo Auth Service{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <article class="panel">
+        <p class="eyebrow">Protected area</p>
+        <h1>
+            {% if is_owner %}
+                Welcome, {{ target_user.get_full_name|default:target_user.username }}
+            {% else %}
+                Managing profile: {{ target_user.get_full_name|default:target_user.username }}
+            {% endif %}
+        </h1>
+        <p>
+            This page enforces object-level access control. Standard users can update only their own profile,
+            while privileged users may manage related protected profiles when authorized.
+        </p>
+        <div class="account-grid">
+            <div class="account-stat">
+                <span>Username</span>
+                <strong>{{ target_user.username }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Email</span>
+                <strong>{{ target_user.email }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Display name</span>
+                <strong>{{ target_user.profile.display_name|default:"Not set" }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Joined</span>
+                <strong>{{ target_user.date_joined|date:"M d, Y" }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Roles</span>
+                <strong>{{ role_labels|join:", " }}</strong>
+            </div>
+        </div>
+        {% if is_privileged_user %}
+            <div class="callout">
+                <strong>Privileged access enabled.</strong>
+                <p>You can review the privileged dashboard and, when allowed, access user-scoped profile routes safely.</p>
+                <div class="hero-actions">
+                    <a class="button secondary" href="{% url 'igihozo:profile_detail' target_user.username %}">View profile</a>
+                    <a class="button secondary" href="{% url 'igihozo:privileged_dashboard' %}">Open dashboard</a>
+                </div>
+            </div>
+        {% endif %}
+    </article>
+
+    <article class="panel">
+        <div class="panel-heading">
+            <p class="eyebrow">Profile settings</p>
+            <h2>Update account details</h2>
+        </div>
+        <form
+            method="post"
+            novalidate
+            class="stack"
+            id="profile-form"
+            data-ajax-endpoint="{% url 'igihozo:profile_ajax_update' target_user.username %}"
+        >
+            {% csrf_token %}
+            {% include "igihozo/partials/form_fields.html" with form=form %}
+            <div class="hero-actions compact-actions">
+                <button type="submit" class="button primary">Save changes</button>
+                <button type="button" class="button secondary" id="ajax-save-button">Quick save with AJAX</button>
+            </div>
+            <p class="helper-text" id="ajax-save-status">
+                AJAX profile updates use Django's standard CSRF token header instead of any exemption shortcut.
+            </p>
+        </form>
+    </article>
+</section>
+<script>
+    (() => {
+        const form = document.getElementById("profile-form");
+        const button = document.getElementById("ajax-save-button");
+        const status = document.getElementById("ajax-save-status");
+
+        if (!form || !button || !status) {
+            return;
+        }
+
+        const getCookie = (name) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) {
+                return parts.pop().split(";").shift();
+            }
+            return "";
+        };
+
+        button.addEventListener("click", async () => {
+            status.textContent = "Saving securely...";
+            const csrfToken = getCookie("csrftoken");
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch(form.dataset.ajaxEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: formData,
+                    credentials: "same-origin",
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    status.textContent = payload.status === "error"
+                        ? "Quick save failed. Check the form values and try again."
+                        : "Quick save failed because the request was not accepted.";
+                    return;
+                }
+
+                status.textContent = payload.message || "Profile changes saved securely.";
+            } catch (error) {
+                status.textContent = "Quick save failed. Please retry using the normal save button.";
+            }
+        });
+    })();
+</script>
+{% endblock %}

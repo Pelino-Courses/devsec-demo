@@ -1,0 +1,42 @@
+{% extends "igihozo/base.html" %}
+
+{% block title %}Profile | Igihozo Auth Service{% endblock %}
+
+{% block content %}
+<section class="dashboard">
+    <article class="panel">
+        <p class="eyebrow">Object-level access</p>
+        <h1>Profile for {{ target_user.get_full_name|default:target_user.username }}</h1>
+        <p>
+            This route uses an explicit username in the URL and verifies the current user is authorized
+            before loading the profile.
+        </p>
+        <div class="account-grid">
+            <div class="account-stat">
+                <span>Username</span>
+                <strong>{{ target_user.username }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Email</span>
+                <strong>{{ target_user.email }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Display name</span>
+                <strong>{{ target_user.profile.display_name|default:"Not set" }}</strong>
+            </div>
+            <div class="account-stat">
+                <span>Roles</span>
+                <strong>{{ role_labels|join:", " }}</strong>
+            </div>
+        </div>
+        <div class="hero-actions">
+            {% if is_owner or is_privileged_user %}
+                <a class="button primary" href="{% url 'igihozo:profile_edit' target_user.username %}">Edit profile</a>
+            {% endif %}
+            {% if is_owner %}
+                <a class="button secondary" href="{% url 'igihozo:password_change' %}">Change password</a>
+            {% endif %}
+        </div>
+    </article>
+</section>
+{% endblock %}
