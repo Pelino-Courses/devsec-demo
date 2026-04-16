@@ -157,6 +157,13 @@ def get_throttle_status(username):
 # ── Public views ─────────────────────────────────────────────────────────────
 
 def register_view(request):
+    """
+    Registration view with safe post-registration redirect.
+
+    Open Redirect Fix: next is validated with url_has_allowed_host_and_scheme
+    before use. External or protocol-relative URLs are silently ignored and
+    the user lands on the dashboard instead.
+    """
     if request.user.is_authenticated:
         return redirect("uwamahoro_joseline:dashboard")
     next_url = request.GET.get("next", "")
@@ -168,8 +175,10 @@ def register_view(request):
             login(request, user)
             messages.success(request, "Registration successful. Welcome!")
             next_url = request.POST.get("next") or request.GET.get("next", "")
-            if next_url:
-                return redirect(next_url)  # INSECURE: no host validation — any URL accepted
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url, allowed_hosts={request.get_host()}
+            ):
+                return redirect(next_url)
             return redirect("uwamahoro_joseline:dashboard")
     else:
         form = RegistrationForm()
@@ -237,13 +246,22 @@ def login_view(request):
 
 
 def logout_view(request):
+    """
+    Logout view with safe post-logout redirect.
+
+    Open Redirect Fix: next is validated with url_has_allowed_host_and_scheme
+    before use. External URLs are rejected and the user falls back to the
+    login page, preventing phishing redirects after logout.
+    """
     next_url = request.GET.get("next", "")
     if request.method == "POST":
         next_url = request.POST.get("next") or request.GET.get("next", "")
         logout(request)
         messages.info(request, "You have been logged out.")
-        if next_url:
-            return redirect(next_url)  # INSECURE: no host validation — any URL accepted
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url, allowed_hosts={request.get_host()}
+        ):
+            return redirect(next_url)
         return redirect("uwamahoro_joseline:login")
     return render(request, "uwamahoro_joseline/logout.html", {"next": next_url})
 

@@ -1,6 +1,5 @@
 """
-Tests for brute-force protection on the login flow and CSRF protection on the
-bio update endpoint.
+Tests for brute-force protection, CSRF protection, and open redirect prevention.
 
 Tests cover:
 - Normal login behavior and successful authentication
@@ -10,6 +9,7 @@ Tests cover:
 - IP address extraction and tracking
 - Throttle status calculation across different time windows
 - CSRF enforcement on the AJAX bio update endpoint
+- Open redirect prevention on logout and register flows
 """
 
 from django.test import TestCase, Client
@@ -577,3 +577,121 @@ class UpdateBioCSRFTests(TestCase):
         self.assertEqual(response.status_code, 200)
         profile = Profile.objects.get(user=self.user)
         self.assertEqual(profile.bio, "")
+
+
+# ── Open Redirect Tests ───────────────────────────────────────────────────────
+
+class LogoutOpenRedirectTests(TestCase):
+    """
+    Tests verifying that logout rejects external redirect targets.
+
+    Design note:
+    The logout flow accepts an optional next parameter so the app can send
+    users to a specific page after they log out (e.g. a public landing page).
+    Without host validation an attacker can craft a link like:
+
+        /joseline/logout/?next=https://evil.com
+
+    After clicking "Confirm Logout" the user lands on evil.com instead of the
+    login page — a classic phishing vector used to harvest credentials on a
+    look-alike page.
+
+    The fix uses url_has_allowed_host_and_scheme to accept only same-host paths.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="logoutuser", password="testpass123")
+        self.logout_url = reverse("uwamahoro_joseline:logout")
+
+    def test_logout_without_next_redirects_to_login(self):
+        """Default post-logout destination is the login page."""
+        self.client.login(username="logoutuser", password="testpass123")
+        response = self.client.post(self.logout_url)
+        self.assertRedirects(response, reverse("uwamahoro_joseline:login"),
+                             fetch_redirect_response=False)
+
+    def test_logout_with_safe_internal_next_is_accepted(self):
+        """A same-host path in next is followed after logout."""
+        self.client.login(username="logoutuser", password="testpass123")
+        safe_next = reverse("uwamahoro_joseline:login")
+        response = self.client.post(self.logout_url, {"next": safe_next})
+        self.assertRedirects(response, safe_next, fetch_redirect_response=False)
+
+    def test_logout_with_external_url_is_rejected(self):
+        """An absolute external URL in next must be ignored."""
+        self.client.login(username="logoutuser", password="testpass123")
+        response = self.client.post(self.logout_url, {"next": "https://evil.com/phish"})
+        # Must land on login, NOT evil.com
+        self.assertRedirects(response, reverse("uwamahoro_joseline:login"),
+                             fetch_redirect_response=False)
+
+    def test_logout_with_protocol_relative_url_is_rejected(self):
+        """Protocol-relative URLs (//evil.com) must also be blocked."""
+        self.client.login(username="logoutuser", password="testpass123")
+        response = self.client.post(self.logout_url, {"next": "//evil.com/phish"})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:login"),
+                             fetch_redirect_response=False)
+
+    def test_logout_next_passed_through_hidden_field(self):
+        """GET request renders the confirmation page with next in context."""
+        self.client.login(username="logoutuser", password="testpass123")
+        safe_next = "/joseline/dashboard/"
+        response = self.client.get(f"{self.logout_url}?next={safe_next}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["next"], safe_next)
+
+
+class RegisterOpenRedirectTests(TestCase):
+    """
+    Tests verifying that registration rejects external redirect targets.
+
+    Same attack model as logout: an attacker sends a new user a registration
+    link with next=https://evil.com. After signing up the user is immediately
+    sent to the attacker's page, where they may be tricked into re-entering
+    their new password or other sensitive information.
+    """
+
+    def setUp(self):
+        self.register_url = reverse("uwamahoro_joseline:register")
+
+    def _register(self, extra_post=None):
+        data = {
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "password1": "SecurePass123!",
+            "password2": "SecurePass123!",
+        }
+        if extra_post:
+            data.update(extra_post)
+        return self.client.post(self.register_url, data)
+
+    def test_register_without_next_redirects_to_dashboard(self):
+        """Default post-registration destination is the dashboard."""
+        response = self._register()
+        self.assertRedirects(response, reverse("uwamahoro_joseline:dashboard"),
+                             fetch_redirect_response=False)
+
+    def test_register_with_safe_internal_next_is_accepted(self):
+        """A same-host path in next is followed after registration."""
+        safe_next = reverse("uwamahoro_joseline:profile")
+        response = self._register({"next": safe_next})
+        self.assertRedirects(response, safe_next, fetch_redirect_response=False)
+
+    def test_register_with_external_url_is_rejected(self):
+        """An absolute external URL in next must be ignored."""
+        response = self._register({"next": "https://evil.com/steal-creds"})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:dashboard"),
+                             fetch_redirect_response=False)
+
+    def test_register_with_protocol_relative_url_is_rejected(self):
+        """Protocol-relative URLs (//evil.com) must also be blocked."""
+        response = self._register({"next": "//evil.com"})
+        self.assertRedirects(response, reverse("uwamahoro_joseline:dashboard"),
+                             fetch_redirect_response=False)
+
+    def test_register_next_passed_via_get_to_template(self):
+        """GET to the register page with next stores it in the context."""
+        safe_next = "/joseline/dashboard/"
+        response = self.client.get(f"{self.register_url}?next={safe_next}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["next"], safe_next)
