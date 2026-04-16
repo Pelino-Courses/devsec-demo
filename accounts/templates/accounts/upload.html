@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head><title>Upload Files</title></head>
+<body>
+    <h1>Upload Avatar and Document</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <p style="color: red;">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <p>Avatar (JPG, PNG, GIF - Max 5MB):</p>
+        <input type="file" name="avatar"><br><br>
+        
+        <p>Document (PDF, DOCX - Max 5MB):</p>
+        <input type="file" name="document"><br><br>
+        
+        <button type="submit">Upload</button>
+    </form>
+    <p><a href="{% url 'profile' %}">Back to Profile</a></p>
+</body>
+</html>

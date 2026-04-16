@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><title>Profile</title></head>
+<body>
+    <h1>Profile: {{ profile.user.username }}</h1>
+    
+    <h3>Avatar</h3>
+    {% if profile.avatar %}
+        <img src="{{ profile.avatar.url }}" alt="Avatar" width="100">
+    {% else %}
+        <p>No avatar uploaded.</p>
+    {% endif %}
+
+    <h3>Document</h3>
+    {% if profile.document %}
+        <p><a href="{{ profile.document.url }}">Download Document</a></p>
+    {% else %}
+        <p>No document uploaded.</p>
+    {% endif %}
+
+    <hr>
+    <p><a href="{% url 'upload_files' %}">Upload Files</a></p>
+    <a href="{% url 'login' %}">Back to Login</a>
+</body>
+</html>
