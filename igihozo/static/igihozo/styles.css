@@ -172,6 +172,10 @@ a {
     grid-template-columns: repeat(auto-fit, minmax(180px, max-content));
 }
 
+.compact-actions {
+    margin-top: 0;
+}
+
 .button {
     display: inline-flex;
     align-items: center;

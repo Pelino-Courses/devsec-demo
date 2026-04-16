@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, Permission, User
 from django.core.cache import cache
 from django.core import mail
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.test import override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -425,3 +425,81 @@ class LoginBruteForceProtectionTests(TestCase):
 
         self.assertEqual(follow_up_failure.status_code, 200)
         self.assertNotContains(follow_up_failure, "Too many failed sign-in attempts")
+
+
+class CsrfProtectionTests(TestCase):
+    def setUp(self):
+        self.password = "ComplexPass123!"
+        self.user = User.objects.create_user(
+            username="csrfuser",
+            email="csrf@example.com",
+            password=self.password,
+        )
+        self.csrf_client = Client(enforce_csrf_checks=True)
+        self.csrf_client.login(username="csrfuser", password=self.password)
+
+    def test_ajax_profile_update_without_csrf_token_is_rejected(self):
+        response = self.csrf_client.post(
+            reverse("igihozo:profile_ajax_update", kwargs={"username": "csrfuser"}),
+            {
+                "email": "blocked@example.com",
+                "first_name": "Blocked",
+                "last_name": "Request",
+                "display_name": "Blocked Request",
+                "bio": "This should fail without CSRF.",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_ajax_profile_update_with_csrf_token_succeeds(self):
+        edit_page = self.csrf_client.get(
+            reverse("igihozo:profile_edit", kwargs={"username": "csrfuser"})
+        )
+        csrf_token = edit_page.cookies["csrftoken"].value
+
+        response = self.csrf_client.post(
+            reverse("igihozo:profile_ajax_update", kwargs={"username": "csrfuser"}),
+            {
+                "email": "secured@example.com",
+                "first_name": "Secure",
+                "last_name": "Update",
+                "display_name": "Secure Update",
+                "bio": "This request includes a valid CSRF token.",
+            },
+            HTTP_X_CSRFTOKEN=csrf_token,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "secured@example.com")
+
+    def test_ajax_profile_update_still_respects_object_level_access(self):
+        other_user = User.objects.create_user(
+            username="othercsrfuser",
+            email="othercsrf@example.com",
+            password=self.password,
+        )
+        edit_page = self.csrf_client.get(
+            reverse("igihozo:profile_edit", kwargs={"username": "csrfuser"})
+        )
+        csrf_token = edit_page.cookies["csrftoken"].value
+
+        response = self.csrf_client.post(
+            reverse("igihozo:profile_ajax_update", kwargs={"username": "othercsrfuser"}),
+            {
+                "email": "hijack@example.com",
+                "first_name": "Hijack",
+                "last_name": "Attempt",
+                "display_name": "Hijack Attempt",
+                "bio": "Trying to change another user's profile.",
+            },
+            HTTP_X_CSRFTOKEN=csrf_token,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        other_user.refresh_from_db()
+        self.assertEqual(other_user.email, "othercsrf@example.com")

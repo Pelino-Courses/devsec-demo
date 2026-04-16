@@ -14,6 +14,7 @@ This repository now includes a Django authentication app named `igihozo` that co
 - object-level profile protection to prevent IDOR-style access
 - secure password reset workflow using Django's built-in token-based reset flow
 - login throttling to reduce brute-force abuse
+- CSRF-safe AJAX profile update flow
 - admin integration for profile records
 - tests for the main authentication flows
 
@@ -47,6 +48,7 @@ venv\Scripts\python.exe manage.py runserver
 - `/account/` protected account page
 - `/profiles/<username>/` protected profile detail with object-level authorization
 - `/profiles/<username>/edit/` protected profile edit with object-level authorization
+- `/profiles/<username>/ajax-update/` CSRF-protected AJAX profile update endpoint
 - `/privileged-dashboard/` privileged-only authorization dashboard
 - `/password-change/` password update
 - `/password-reset/` password reset request
@@ -99,6 +101,18 @@ The login workflow includes a simple, auditable throttle using Django's cache:
 - the response remains understandable for legitimate users by showing a clear temporary wait message
 
 This keeps the protection easy to test and explain while adding practical resistance to repeated credential guessing.
+
+## CSRF Protection Fix
+
+The project now includes a custom AJAX profile update workflow that uses Django's standard CSRF protections correctly:
+
+- the browser receives a CSRF cookie from the protected profile edit page
+- JavaScript sends the token back in the `X-CSRFToken` header for the AJAX POST
+- the state-changing endpoint keeps Django's built-in CSRF protection active
+- no `csrf_exempt` shortcut is used
+- object-level access control still applies alongside CSRF checks
+
+This preserves the AJAX functionality while ensuring unsafe cross-site state-changing requests are rejected.
 
 ## Testing
 

@@ -56,11 +56,73 @@
             <p class="eyebrow">Profile settings</p>
             <h2>Update account details</h2>
         </div>
-        <form method="post" novalidate class="stack">
+        <form
+            method="post"
+            novalidate
+            class="stack"
+            id="profile-form"
+            data-ajax-endpoint="{% url 'igihozo:profile_ajax_update' target_user.username %}"
+        >
             {% csrf_token %}
             {% include "igihozo/partials/form_fields.html" with form=form %}
-            <button type="submit" class="button primary">Save changes</button>
+            <div class="hero-actions compact-actions">
+                <button type="submit" class="button primary">Save changes</button>
+                <button type="button" class="button secondary" id="ajax-save-button">Quick save with AJAX</button>
+            </div>
+            <p class="helper-text" id="ajax-save-status">
+                AJAX profile updates use Django's standard CSRF token header instead of any exemption shortcut.
+            </p>
         </form>
     </article>
 </section>
+<script>
+    (() => {
+        const form = document.getElementById("profile-form");
+        const button = document.getElementById("ajax-save-button");
+        const status = document.getElementById("ajax-save-status");
+
+        if (!form || !button || !status) {
+            return;
+        }
+
+        const getCookie = (name) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) {
+                return parts.pop().split(";").shift();
+            }
+            return "";
+        };
+
+        button.addEventListener("click", async () => {
+            status.textContent = "Saving securely...";
+            const csrfToken = getCookie("csrftoken");
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch(form.dataset.ajaxEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    body: formData,
+                    credentials: "same-origin",
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    status.textContent = payload.status === "error"
+                        ? "Quick save failed. Check the form values and try again."
+                        : "Quick save failed because the request was not accepted.";
+                    return;
+                }
+
+                status.textContent = payload.message || "Profile changes saved securely.";
+            } catch (error) {
+                status.textContent = "Quick save failed. Please retry using the normal save button.";
+            }
+        });
+    })();
+</script>
 {% endblock %}

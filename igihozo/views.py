@@ -12,7 +12,10 @@ from django.contrib.auth.views import (
     PasswordResetDoneView,
     PasswordResetView,
 )
+from django.http import JsonResponse
 from django.http import Http404
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from django.shortcuts import redirect
@@ -158,6 +161,7 @@ class ProfileEditView(OwnedProfileAccessMixin, FormView):
     form_class = AccountUpdateForm
     login_url = reverse_lazy("igihozo:login")
 
+    @method_decorator(ensure_csrf_cookie)
     def dispatch(self, request, *args, **kwargs):
         self.target_user = self.get_target_user()
         return super().dispatch(request, *args, **kwargs)
@@ -189,6 +193,40 @@ class ProfileEditView(OwnedProfileAccessMixin, FormView):
         context["role_labels"] = self.get_role_labels(self.target_user)
         context["is_owner"] = self.target_user.pk == self.request.user.pk
         return context
+
+
+class ProfileAjaxUpdateView(OwnedProfileAccessMixin, FormView):
+    form_class = AccountUpdateForm
+    http_method_names = ["post"]
+    login_url = reverse_lazy("igihozo:login")
+
+    def dispatch(self, request, *args, **kwargs):
+        self.target_user = self.get_target_user()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["instance"] = self.target_user.profile
+        kwargs["user"] = self.target_user
+        return kwargs
+
+    def form_valid(self, form):
+        form.save()
+        return JsonResponse(
+            {
+                "status": "ok",
+                "message": "Profile changes saved securely.",
+                "profile": {
+                    "username": self.target_user.username,
+                    "display_name": self.target_user.profile.display_name,
+                    "email": self.target_user.email,
+                    "bio": self.target_user.profile.bio,
+                },
+            }
+        )
+
+    def form_invalid(self, form):
+        return JsonResponse({"status": "error", "errors": form.errors}, status=400)
 
 
 class UserPasswordChangeView(LoginRequiredMixin, PasswordChangeView):

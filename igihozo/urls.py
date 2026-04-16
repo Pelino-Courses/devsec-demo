@@ -4,6 +4,7 @@ from .views import (
     AccountView,
     HomeView,
     ProfileDetailView,
+    ProfileAjaxUpdateView,
     ProfileEditView,
     PrivilegedDashboardView,
     RegisterView,
@@ -39,6 +40,11 @@ urlpatterns = [
     path("account/", AccountView.as_view(), name="account"),
     path("profiles/<str:username>/", ProfileDetailView.as_view(), name="profile_detail"),
     path("profiles/<str:username>/edit/", ProfileEditView.as_view(), name="profile_edit"),
+    path(
+        "profiles/<str:username>/ajax-update/",
+        ProfileAjaxUpdateView.as_view(),
+        name="profile_ajax_update",
+    ),
     path("privileged-dashboard/", PrivilegedDashboardView.as_view(), name="privileged_dashboard"),
     path("password-change/", UserPasswordChangeView.as_view(), name="password_change"),
     path(
