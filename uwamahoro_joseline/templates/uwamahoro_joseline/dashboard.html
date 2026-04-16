@@ -1,0 +1,84 @@
+{% extends "uwamahoro_joseline/base.html" %}
+
+{% block title %}Dashboard — SecureAuth{% endblock %}
+
+{% block content %}
+<!-- Welcome banner -->
+<div class="welcome-banner">
+    <p class="welcome-greeting">Good to see you,</p>
+    <h1 class="welcome-name">{{ user.get_full_name|default:user.username }}</h1>
+    <p class="welcome-meta">
+        <span class="badge" style="background:rgba(255,255,255,.2);color:white;margin-right:.5rem">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
+            {% if perms.uwamahoro_joseline.can_view_all_profiles %}Instructor{% else %}Student{% endif %}
+        </span>
+        Signed in as <strong>{{ user.username }}</strong>
+    </p>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#2563eb" stroke-width="2">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+        </div>
+        <p class="stat-label">Account</p>
+        <p class="stat-value">{{ user.username }}</p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#f0fdf4">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#059669" stroke-width="2">
+                <path d="M20 6L9 17l-5-5"/>
+            </svg>
+        </div>
+        <p class="stat-label">Status</p>
+        <p class="stat-value" style="font-size:1rem">
+            <span class="badge badge-green">Authenticated</span>
+        </p>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#faf5ff">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+        </div>
+        <p class="stat-label">Email</p>
+        <p class="stat-value" style="font-size:.9rem;font-weight:500">{{ user.email|default:"Not set" }}</p>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Quick actions</h2>
+    </div>
+    <div class="card-body">
+        <div class="actions-grid">
+            <a href="{% url 'uwamahoro_joseline:profile' %}" class="action-card">
+                <div class="action-icon" style="background:#eff6ff">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#2563eb" stroke-width="2">
+                        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="action-title">View Profile</p>
+                    <p class="action-desc">See your account details</p>
+                </div>
+            </a>
+            <a href="{% url 'uwamahoro_joseline:password_change' %}" class="action-card">
+                <div class="action-icon" style="background:#faf5ff">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="action-title">Change Password</p>
+                    <p class="action-desc">Update your credentials</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
