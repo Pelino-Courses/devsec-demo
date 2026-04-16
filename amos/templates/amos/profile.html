@@ -1,0 +1,131 @@
+{% extends "amos/base.html" %}
+{% block title %}Profile{% endblock %}
+{% block topbar_title %}Profile{% endblock %}
+
+{% block extra_scripts %}
+{#
+  CSRF + AJAX pattern — correct implementation
+  ============================================
+  Django's CsrfViewMiddleware validates every state-changing request.
+  For HTML forms the {% csrf_token %} tag injects a hidden field handled
+  automatically.  For JavaScript fetch() calls the token must be read from
+  the `csrftoken` cookie (intentionally NOT HttpOnly) and sent as the
+  X-CSRFToken request header.
+
+  The WRONG shortcut many developers reach for is adding @csrf_exempt to
+  the view.  That disables protection entirely — any page on any origin could
+  forge requests on behalf of the logged-in user.  Never do that.
+
+  Docs: https://docs.djangoproject.com/en/5.2/howto/csrf/#ajax
+#}
+<script>
+/**
+ * Read the csrftoken cookie set by Django's CsrfViewMiddleware.
+ * The cookie is NOT HttpOnly precisely so JavaScript can read it here.
+ */
+function getCsrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+/**
+ * Save the bio via AJAX without a full page reload.
+ *
+ * Key points:
+ *   1. method: "POST"  — state-changing, so CSRF applies.
+ *   2. "X-CSRFToken" header — required.  Without it the server returns 403.
+ *   3. No @csrf_exempt on the server — the middleware stays fully active.
+ */
+async function saveBioAjax(bio) {
+  const response = await fetch("{% url 'amos:update_bio' %}", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken(),   // ← mandatory; absence → 403 Forbidden
+    },
+    body: JSON.stringify({ bio }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || "Request failed");
+  }
+  return response.json();
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:600px">
+  <h1 class="card-title">Your profile</h1>
+
+  <!-- Read-only account summary -->
+  <div class="info-grid">
+    <div class="info-row">
+      <span class="info-label">Username</span>
+      <span class="info-value">{{ user.username }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Email</span>
+      <span class="info-value">{{ user.email|default:"—" }}</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Member since</span>
+      <span class="info-value" data-utc="{{ user.date_joined|date:'c' }}">
+        {{ user.date_joined|date:"N j, Y" }}
+      </span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Current uploads (read-only summary) -->
+  {% if profile_obj.avatar or profile_obj.document %}
+    <hr class="divider">
+    <div class="info-grid" style="margin-bottom:1rem">
+      {% if profile_obj.avatar %}
+        <div class="info-row">
+          <span class="info-label">Current avatar</span>
+          <span class="info-value">
+            <a href="{% url 'amos:serve_file' 'avatar' user.pk %}" style="color:var(--accent)">View</a>
+          </span>
+        </div>
+      {% endif %}
+      {% if profile_obj.document %}
+        <div class="info-row">
+          <span class="info-label">Current document</span>
+          <span class="info-value">
+            <a href="{% url 'amos:serve_file' 'document' user.pk %}" style="color:var(--accent)">Download</a>
+          </span>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- Editable profile form (bio + file uploads) -->
+  {# enctype="multipart/form-data" is required for file uploads — without it,
+     the browser sends only the text fields and the file never reaches Django. #}
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="form-group">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.errors %}
+          <ul class="errorlist">
+            {% for error in field.errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+        {% if field.help_text %}
+          <small class="helptext">{{ field.help_text }}</small>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="action-row">
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <a href="{% url 'amos:dashboard' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
