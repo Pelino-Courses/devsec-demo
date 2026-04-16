@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; }
+        .profile-card { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+        form { display: inline; }
+        button { background-color: #dc3545; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>My Profile</h1>
+    <div class="profile-card">
+        <h2>{{ profile.user.username }}</h2>
+        <p><strong>Role:</strong> {{ profile.role }}</p>
+    </div>
+    <div style="margin-top: 20px;">
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+</body>
+</html>

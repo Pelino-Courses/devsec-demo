@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; }
+        .form-card { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+        input { display: block; margin: 10px 0; padding: 8px; width: 95%; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+        a { color: #007bff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>Register</h1>
+    {% if messages %}
+        {% for message in messages %}
+            <p>{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+
+    <div class="form-card">
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">Register</button>
+        </form>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <a href="{% url 'login' %}">Already have an account? Login</a>
+    </div>
+</body>
+</html>
