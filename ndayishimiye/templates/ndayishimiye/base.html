@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}UAS{% endblock %}</title>
+</head>
+<body>
+    <nav>
+        {% if user.is_authenticated %}
+            Welcome, {{ user.username }} |
+            <a href="{% url 'ndayishimiye:profile' %}">Profile</a> |
+            <a href="{% url 'ndayishimiye:password_change' %}">Change Password</a> |
+            <a href="{% url 'ndayishimiye:logout' %}">Logout</a>
+        {% else %}
+            <a href="{% url 'ndayishimiye:login' %}">Login</a> |
+            <a href="{% url 'ndayishimiye:register' %}">Register</a>
+        {% endif %}
+    </nav>
+    <hr>
+    {% if messages %}
+        {% for message in messages %}
+            <p><strong>{{ message }}</strong></p>
+        {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+</body>
+</html>
