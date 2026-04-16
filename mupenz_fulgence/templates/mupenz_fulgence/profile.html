@@ -1,0 +1,101 @@
+{% extends 'mupenz_fulgence/base.html' %}
+
+{% block title %}My Profile | UAS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-body p-4 p-md-5">
+
+        <h3 class="fw-bold mb-1">My Profile</h3>
+        <p class="text-muted mb-4">Update your personal information below.</p>
+
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          <div class="row g-3">
+
+            <!-- First name -->
+            <div class="col-sm-6">
+              <label for="{{ form.first_name.id_for_label }}" class="form-label fw-semibold">
+                First Name
+              </label>
+              {{ form.first_name }}
+              {% for error in form.first_name.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+            <!-- Last name -->
+            <div class="col-sm-6">
+              <label for="{{ form.last_name.id_for_label }}" class="form-label fw-semibold">
+                Last Name
+              </label>
+              {{ form.last_name }}
+              {% for error in form.last_name.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+            <!-- Email -->
+            <div class="col-12">
+              <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">
+                Email Address <span class="text-danger">*</span>
+              </label>
+              {{ form.email }}
+              {% for error in form.email.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+            <!-- Bio -->
+            <div class="col-12">
+              <label for="{{ form.bio.id_for_label }}" class="form-label fw-semibold">
+                Bio
+              </label>
+              {{ form.bio }}
+              {% for error in form.bio.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+            <!-- Location -->
+            <div class="col-sm-6">
+              <label for="{{ form.location.id_for_label }}" class="form-label fw-semibold">
+                Location
+              </label>
+              {{ form.location }}
+              {% for error in form.location.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+            <!-- Birth date -->
+            <div class="col-sm-6">
+              <label for="{{ form.birth_date.id_for_label }}" class="form-label fw-semibold">
+                Birth Date
+              </label>
+              {{ form.birth_date }}
+              {% for error in form.birth_date.errors %}
+                <div class="text-danger small mt-1">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+          </div><!-- /row -->
+
+          <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg me-1"></i> Save Changes
+            </button>
+            <a href="{% url 'mupenz_fulgence:dashboard' %}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
