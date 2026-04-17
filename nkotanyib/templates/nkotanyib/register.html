@@ -1,0 +1,28 @@
+{% extends 'nkotanyib/base.html' %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 2rem; text-align: center;">Create an Account</h2>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <span class="helptext">{{ field.help_text|safe }}</span>
+                {% endif %}
+                {% for error in field.errors %}
+                    <ul class="errorlist"><li>{{ error }}</li></ul>
+                {% endfor %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn-primary" style="margin-top: 1rem;">Register</button>
+    </form>
+    <p style="text-align: center; margin-top: 2rem; color: #94a3b8; font-size: 0.9rem;">
+        Already have an account? <a href="{% url 'login' %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Log in here</a>
+    </p>
+</div>
+{% endblock %}

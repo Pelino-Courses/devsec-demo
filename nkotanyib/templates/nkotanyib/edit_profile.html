@@ -1,0 +1,25 @@
+{% extends 'nkotanyib/base.html' %}
+
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 2rem;">Edit Profile Information</h2>
+    
+    <div style="background: rgba(15, 23, 42, 0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 2rem;">
+        <form method="POST" action="{% url 'edit_profile' profile_user.id %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" value="{{ profile_user.email }}" placeholder="Enter new email address">
+            </div>
+            
+            <button type="submit" class="btn-primary">Save Changes</button>
+        </form>
+    </div>
+    
+    <div style="text-align: center;">
+        <a href="{% url 'profile' %}" style="color: #94a3b8; text-decoration: none; font-size: 0.9rem;">Back to Profile</a>
+    </div>
+</div>
+{% endblock %}

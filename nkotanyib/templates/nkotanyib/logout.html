@@ -1,0 +1,12 @@
+{% extends 'nkotanyib/base.html' %}
+
+{% block title %}Logged Out{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center;">
+    <h2 style="margin-bottom: 2rem;">You have been logged out</h2>
+    <p style="color: #cbd5e1; margin-bottom: 2rem;">Thanks for spending some time with us today.</p>
+    
+    <a href="{% url 'login' %}" class="btn-primary">Log in again</a>
+</div>
+{% endblock %}
