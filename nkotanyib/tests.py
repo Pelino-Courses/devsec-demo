@@ -112,3 +112,37 @@ class AccessControlTests(TestCase):
         response = self.client.get(self.dashboard_url)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'nkotanyib/privileged_dashboard.html')
+
+class IDORPreventionTests(TestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user(username='user_a', password='password123')
+        self.user_b = User.objects.create_user(username='user_b', password='password123')
+        self.user_a_edit_url = reverse('edit_profile', args=[self.user_a.id])
+        self.user_b_edit_url = reverse('edit_profile', args=[self.user_b.id])
+
+    def test_can_access_own_profile_edit(self):
+        self.client.login(username='user_a', password='password123')
+        response = self.client.get(self.user_a_edit_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'nkotanyib/edit_profile.html')
+
+    def test_cannot_access_other_users_profile_edit(self):
+        self.client.login(username='user_a', password='password123')
+        response = self.client.get(self.user_b_edit_url)
+        # Should be safely redirected to profile
+        self.assertRedirects(response, reverse('profile'))
+
+    def test_modification_succesful_on_own_profile(self):
+        self.client.login(username='user_a', password='password123')
+        response = self.client.post(self.user_a_edit_url, {'email': 'new_a@example.com'})
+        self.assertRedirects(response, reverse('profile'))
+        self.user_a.refresh_from_db()
+        self.assertEqual(self.user_a.email, 'new_a@example.com')
+
+    def test_modification_forbidden_on_other_users_profile(self):
+        self.client.login(username='user_a', password='password123')
+        response = self.client.post(self.user_b_edit_url, {'email': 'hacked@example.com'})
+        self.assertRedirects(response, reverse('profile'))
+        self.user_b.refresh_from_db()
+        self.assertNotEqual(self.user_b.email, 'hacked@example.com')
+

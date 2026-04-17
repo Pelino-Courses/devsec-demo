@@ -1,8 +1,9 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.models import User
 
 def is_privileged(user):
     """Check if a user is an instructor or staff."""
@@ -40,3 +41,25 @@ def privileged_dashboard(request):
     return render(request, 'nkotanyib/privileged_dashboard.html', {
         'user': request.user
     })
+
+@login_required
+def edit_profile(request, user_id):
+    # IDOR Prevention: Ensure that users can only open and modify their own accounts
+    if request.user.id != user_id:
+        messages.error(request, 'You do not have permission to access or edit this profile.')
+        return redirect('profile')
+
+    user_to_edit = get_object_or_404(User, pk=user_id)
+
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        if email:
+            user_to_edit.email = email
+            user_to_edit.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('profile')
+
+    return render(request, 'nkotanyib/edit_profile.html', {
+        'profile_user': user_to_edit
+    })
+

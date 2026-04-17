@@ -38,6 +38,7 @@
     </div>
     
     <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <a href="{% url 'edit_profile' user.id %}" class="btn-secondary" style="margin-top: 0">Edit Information</a>
         <a href="{% url 'password_change' %}" class="btn-primary">Change Password</a>
     </div>
 </div>

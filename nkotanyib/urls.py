@@ -10,4 +10,5 @@ urlpatterns = [
     path('password_change/', auth_views.PasswordChangeView.as_view(template_name='nkotanyib/password_change.html', success_url='/password_change/done/'), name='password_change'),
     path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='nkotanyib/password_change_done.html'), name='password_change_done'),
     path('dashboard/', views.privileged_dashboard, name='privileged_dashboard'),
+    path('profile/<int:user_id>/edit/', views.edit_profile, name='edit_profile'),
 ]
