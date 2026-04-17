@@ -1,3 +1,4 @@
+{% load auth_extras %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -241,6 +242,9 @@
         <a href="{% url 'login' %}" style="font-size: 1.25rem; font-weight: 800; background: linear-gradient(to right, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">AuthService</a>
         <div class="nav-links">
             {% if user.is_authenticated %}
+                {% if user|has_group:"Instructor" %}
+                    <a href="{% url 'privileged_dashboard' %}" style="color: var(--secondary);">Dashboard</a>
+                {% endif %}
                 <a href="{% url 'profile' %}">Profile</a>
                 <form action="{% url 'logout' %}" method="post" style="display:inline;">
                     {% csrf_token %}

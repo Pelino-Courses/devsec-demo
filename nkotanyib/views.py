@@ -4,6 +4,10 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
+def is_privileged(user):
+    """Check if a user is an instructor or staff."""
+    return user.is_authenticated and (user.is_staff or user.groups.filter(name='Instructor').exists())
+
 def register(request):
     if request.user.is_authenticated:
         return redirect('profile')
@@ -25,5 +29,14 @@ def register(request):
 @login_required
 def profile(request):
     return render(request, 'nkotanyib/profile.html', {
+        'user': request.user
+    })
+
+@login_required
+def privileged_dashboard(request):
+    if not is_privileged(request.user):
+        messages.error(request, 'You do not have permission to access the privileged dashboard.')
+        return redirect('profile')
+    return render(request, 'nkotanyib/privileged_dashboard.html', {
         'user': request.user
     })

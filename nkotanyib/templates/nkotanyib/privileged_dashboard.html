@@ -1,0 +1,30 @@
+{% extends 'nkotanyib/base.html' %}
+
+{% block title %}Privileged Dashboard{% endblock %}
+
+{% block content %}
+<div class="card" style="border-top: 4px solid var(--secondary);">
+    <h2 style="margin-bottom: 2rem;">Instructor Dashboard</h2>
+    
+    <div style="background: rgba(15, 23, 42, 0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 2rem;">
+        <h3 style="margin-top: 0; color: #cbd5e1;">Welcome, {{ user.username }}</h3>
+        <p style="color: #94a3b8; line-height: 1.6;">
+            This is a restricted area. Only users belonging to the <strong>Instructor</strong> group or with <strong>Staff</strong> status can view this page.
+            From here, you could normally manage students, review assignments, or change application settings.
+        </p>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 8px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">👥</div>
+            <h4 style="margin: 0 0 0.5rem 0;">Manage Users</h4>
+            <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">View and edit standard users</p>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 8px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">📊</div>
+            <h4 style="margin: 0 0 0.5rem 0;">System Logs</h4>
+            <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">Audit trail and security events</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

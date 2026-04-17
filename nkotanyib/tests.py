@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 
 class AuthenticationTests(TestCase):
     def setUp(self):
@@ -67,3 +67,48 @@ class AuthenticationTests(TestCase):
     def test_password_change_requires_login(self):
         response = self.client.get(self.password_change_url)
         self.assertRedirects(response, f"{self.login_url}?next={self.password_change_url}")
+
+class AccessControlTests(TestCase):
+    def setUp(self):
+        self.dashboard_url = reverse('privileged_dashboard')
+        self.profile_url = reverse('profile')
+        self.login_url = reverse('login')
+        
+        # Standard user
+        self.standard_user = User.objects.create_user(
+            username='standard', password='password123'
+        )
+        
+        # Staff user
+        self.staff_user = User.objects.create_user(
+            username='staff', password='password123', is_staff=True
+        )
+        
+        # Instructor user
+        self.instructor_group, _ = Group.objects.get_or_create(name='Instructor')
+        self.instructor_user = User.objects.create_user(
+            username='instructor', password='password123'
+        )
+        self.instructor_user.groups.add(self.instructor_group)
+
+    def test_anonymous_access_denied(self):
+        response = self.client.get(self.dashboard_url)
+        self.assertRedirects(response, f"{self.login_url}?next={self.dashboard_url}")
+
+    def test_standard_user_access_denied(self):
+        self.client.login(username='standard', password='password123')
+        response = self.client.get(self.dashboard_url)
+        # Should redirect back to profile with an error message
+        self.assertRedirects(response, self.profile_url)
+
+    def test_staff_user_access_granted(self):
+        self.client.login(username='staff', password='password123')
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'nkotanyib/privileged_dashboard.html')
+
+    def test_instructor_user_access_granted(self):
+        self.client.login(username='instructor', password='password123')
+        response = self.client.get(self.dashboard_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'nkotanyib/privileged_dashboard.html')
