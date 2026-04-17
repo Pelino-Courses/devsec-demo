@@ -1,0 +1,44 @@
+{% extends 'nkotanyib/base.html' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2 style="margin-bottom: 2rem;">User Profile</h2>
+    
+    <div style="background: rgba(15, 23, 42, 0.6); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; color: white;">
+                {{ user.username|make_list|first|upper }}
+            </div>
+            <div>
+                <h3 style="margin: 0; font-size: 1.5rem; color: white;">{{ user.username }}</h3>
+                <p style="margin: 0.25rem 0 0 0; color: #94a3b8;">
+                    {% if user.email %}{{ user.email }}{% else %}No email provided{% endif %}
+                </p>
+                <p style="margin: 0.25rem 0 0 0; color: #cbd5e1; font-size: 0.85rem;">
+                    Member since: {{ user.date_joined|date:"F j, Y" }}
+                </p>
+            </div>
+        </div>
+        
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem; margin-top: 1.5rem;">
+            <h4 style="margin-top: 0; color: #cbd5e1;">Account Status</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem;">Active Status</div>
+                    <div style="color: white; font-weight: 600;">{% if user.is_active %}<span style="color: var(--success)">Active</span>{% else %}<span style="color: var(--error)">Inactive</span>{% endif %}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem;">Staff Status</div>
+                    <div style="color: white; font-weight: 600;">{% if user.is_staff %}<span style="color: var(--primary)">Staff Member</span>{% else %}Standard User{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <a href="{% url 'password_change' %}" class="btn-primary">Change Password</a>
+    </div>
+</div>
+{% endblock %}
