@@ -1,0 +1,46 @@
+{% extends 'shema/base.html' %}
+
+{% block title %}Instructor Dashboard | S-Auth{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="glass-card position-relative overflow-hidden p-5">
+            <div class="blur-blob" style="top: -50px; right: 10%; width: 250px; height: 250px; background: rgba(234, 179, 8, 0.4); filter: blur(60px); z-index: -1;"></div>
+            
+            <div class="text-center mb-5">
+                <div class="d-inline-flex align-items-center justify-content-center bg-warning bg-opacity-10 rounded-circle text-warning mb-4" style="width: 70px; height: 70px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                </div>
+                <h1 class="gradient-text h2 mb-3">Privileged Area</h1>
+                <p class="text-white-50">Welcome to the Instructor Dashboard, {{ user.username }}. You have access to this area because you hold the necessary role-based access control permissions.</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="p-4 rounded-3 border border-white border-opacity-10 bg-white bg-opacity-10 hover-lift text-center h-100">
+                        <h3 class="h1 text-warning mb-2">142</h3>
+                        <p class="text-white-50 mb-0 small text-uppercase letter-spacing-1">Active Students</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-4 rounded-3 border border-white border-opacity-10 bg-white bg-opacity-10 hover-lift text-center h-100">
+                        <h3 class="h1 text-warning mb-2">12</h3>
+                        <p class="text-white-50 mb-0 small text-uppercase letter-spacing-1">Current Alerts</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-4 rounded-3 border border-white border-opacity-10 bg-white bg-opacity-10 hover-lift text-center h-100">
+                        <h3 class="h1 text-warning mb-2">Access</h3>
+                        <p class="text-white-50 mb-0 small text-uppercase letter-spacing-1">System Wide</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5 text-center">
+                <p class="text-white-50 small mb-0">Role verified via <code class="text-warning">user.has_perm('shema.view_instructor_dashboard')</code></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
