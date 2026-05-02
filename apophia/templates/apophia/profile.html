@@ -1,0 +1,39 @@
+{% extends "apophia/base.html" %}
+
+{% block title %}Profile - Apophia{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto;">
+    <div class="card">
+        <h1 style="margin-bottom: 2rem;">User Profile</h1>
+        <div style="display: flex; gap: 2rem; align-items: flex-start;">
+            <div style="flex: 1;">
+                <h3 style="color: var(--primary-color);">Account Information</h3>
+                <p style="margin-bottom: 0.5rem;"><strong>Username:</strong> {{ user.username }}</p>
+                <p style="margin-bottom: 1.5rem;"><strong>Date Joined:</strong> {{ target_user.date_joined|date:"F j, Y" }}</p>
+                
+                {% if target_user == user %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <h3 style="margin-top: 2rem;">Update Profile</h3>
+                        {{ u_form.as_p }}
+                        {{ p_form.as_p }}
+                        <button type="submit" class="btn" style="margin-top: 1rem;">Save Changes</button>
+                    </form>
+                {% else %}
+                    <div style="margin-top: 2rem; padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 0.5rem;">
+                        <p style="color: var(--text-muted); font-size: 0.875rem;">
+                            You are viewing this profile as a staff member. Editing is restricted to the account owner.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+            <div style="width: 200px; text-align: center;">
+                 <h3 style="color: var(--primary-color);">Quick Actions</h3>
+                 <a href="{% url 'password_change' %}" class="btn btn-outline" style="margin-bottom: 0.5rem;">Change Password</a>
+                 <a href="{% url 'dashboard' %}" class="btn btn-outline">Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
