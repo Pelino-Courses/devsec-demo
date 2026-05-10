@@ -1,0 +1,134 @@
+{% extends "apophia/base.html" %}
+
+{% block title %}Profile - Apophia{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto;">
+
+    {# ── Profile update card ─────────────────────────────────────────────── #}
+    <div class="card" style="margin-bottom: 2rem;">
+        <h1 style="margin-bottom: 2rem;">User Profile</h1>
+        <div style="display: flex; gap: 2rem; align-items: flex-start;">
+
+            {# Left column: account info + form #}
+            <div style="flex: 1;">
+                <h3 style="color: var(--primary-color);">Account Information</h3>
+                <p style="margin-bottom: 0.5rem;"><strong>Username:</strong> {{ target_user.username }}</p>
+                <p style="margin-bottom: 1.5rem;"><strong>Date Joined:</strong> {{ target_user.date_joined|date:"F j, Y" }}</p>
+
+                {% if target_user == user %}
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <h3 style="margin-top: 2rem;">Update Profile</h3>
+                        {{ u_form.as_p }}
+                        {{ p_form.as_p }}
+                        <button type="submit" class="btn" style="margin-top: 1rem;">Save Changes</button>
+                    </form>
+                {% else %}
+                    <div style="margin-top: 2rem; padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 0.5rem;">
+                        <p style="color: var(--text-muted); font-size: 0.875rem;">
+                            You are viewing this profile as a staff member. Editing is restricted to the account owner.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+
+            {# Right column: avatar + quick actions #}
+            <div style="width: 200px; text-align: center;">
+                {# Avatar display #}
+                <div style="margin-bottom: 1.5rem;">
+                    {% if target_user.profile.avatar %}
+                        <img src="{{ target_user.profile.avatar.url }}"
+                             alt="{{ target_user.username }}'s avatar"
+                             style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover;
+                                    border: 2px solid var(--primary-color);">
+                    {% else %}
+                        <div style="width: 120px; height: 120px; border-radius: 50%;
+                                    background: var(--primary-color); display: inline-flex;
+                                    align-items: center; justify-content: center;
+                                    font-size: 2.5rem; font-weight: 700; color: white;">
+                            {{ target_user.username|first|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <h3 style="color: var(--primary-color);">Quick Actions</h3>
+                <a href="{% url 'password_change' %}" class="btn btn-outline" style="margin-bottom: 0.5rem;">Change Password</a>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline">Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    {# ── Documents card (own profile only) ──────────────────────────────── #}
+    {% if target_user == user %}
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">My Documents</h2>
+        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+            Accepted types: <strong>.pdf</strong>, <strong>.txt</strong> — maximum <strong>5 MB</strong> per file.
+            Documents are stored privately and only accessible to you.
+        </p>
+
+        {# Upload form #}
+        <form method="post" action="{% url 'document_upload' %}" enctype="multipart/form-data"
+              style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap;">
+            {% csrf_token %}
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <label for="id_file">Upload a document</label>
+                {{ document_form.file }}
+                {% if document_form.file.errors %}
+                    <ul class="errorlist">{% for e in document_form.file.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn" style="width: auto; white-space: nowrap;">Upload</button>
+        </form>
+
+        {# Document list #}
+        {% if documents %}
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="text-align: left; border-bottom: 1px solid var(--border-color);">
+                        <th style="padding: 0.75rem;">Filename</th>
+                        <th style="padding: 0.75rem;">Size</th>
+                        <th style="padding: 0.75rem;">Uploaded</th>
+                        <th style="padding: 0.75rem;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 0.75rem; font-size: 0.9rem;">{{ doc.original_filename }}</td>
+                        <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.875rem;">
+                            {{ doc.file_size|filesizeformat }}
+                        </td>
+                        <td style="padding: 0.75rem; color: var(--text-muted); font-size: 0.875rem;">
+                            {{ doc.uploaded_at|date:"M d, Y" }}
+                        </td>
+                        <td style="padding: 0.75rem; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                            <a href="{% url 'document_download' doc.pk %}"
+                               class="btn btn-outline"
+                               style="width: auto; padding: 0.4rem 0.9rem; font-size: 0.8rem;">
+                                Download
+                            </a>
+                            <form method="post" action="{% url 'document_delete' doc.pk %}"
+                                  onsubmit="return confirm('Delete {{ doc.original_filename }}?');">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        style="background: rgba(239,68,68,0.15); border: 1px solid #ef4444;
+                                               color: #f87171; padding: 0.4rem 0.9rem; border-radius: 0.5rem;
+                                               cursor: pointer; font-size: 0.8rem;">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: var(--text-muted); font-size: 0.875rem;">No documents uploaded yet.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

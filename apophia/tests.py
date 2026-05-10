@@ -1,0 +1,950 @@
+import io
+import shutil
+import tempfile
+from pathlib import Path
+
+from django.test import TestCase, Client, override_settings
+from django.urls import reverse
+from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from .models import Profile, LoginAttempt, Document
+
+
+class CSRFProtectionTests(TestCase):
+    """Verifies that all state-changing endpoints enforce CSRF protection."""
+
+    def setUp(self):
+        self.client = Client(enforce_csrf_checks=True)
+        self.user = User.objects.create_user(
+            username='csrfuser', email='csrf@example.com', password='Password123!'
+        )
+
+    def _get_csrf_token(self, url):
+        """GET a page to receive the CSRF cookie, then return the token value."""
+        self.client.get(url)
+        return self.client.cookies['csrftoken'].value
+
+    # ------------------------------------------------------------------ #
+    # Register
+    # ------------------------------------------------------------------ #
+
+    def test_register_post_without_csrf_returns_403(self):
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser', 'email': 'new@example.com',
+            'password1': 'Password123!', 'password2': 'Password123!',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_register_post_with_csrf_succeeds(self):
+        token = self._get_csrf_token(reverse('register'))
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser', 'email': 'new@example.com',
+            'password1': 'Password123!', 'password2': 'Password123!',
+            'csrfmiddlewaretoken': token,
+        })
+        self.assertNotEqual(response.status_code, 403)
+
+    # ------------------------------------------------------------------ #
+    # Login
+    # ------------------------------------------------------------------ #
+
+    def test_login_post_without_csrf_returns_403(self):
+        response = self.client.post(reverse('login'), {
+            'username': 'csrfuser', 'password': 'Password123!',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_login_post_with_csrf_succeeds(self):
+        token = self._get_csrf_token(reverse('login'))
+        response = self.client.post(reverse('login'), {
+            'username': 'csrfuser', 'password': 'Password123!',
+            'csrfmiddlewaretoken': token,
+        })
+        self.assertNotEqual(response.status_code, 403)
+
+    # ------------------------------------------------------------------ #
+    # Logout
+    # ------------------------------------------------------------------ #
+
+    def test_logout_post_without_csrf_returns_403(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('logout'))
+        self.assertEqual(response.status_code, 403)
+
+    def test_logout_post_with_csrf_succeeds(self):
+        self.client.force_login(self.user)
+        token = self._get_csrf_token(reverse('dashboard'))
+        response = self.client.post(reverse('logout'), {
+            'csrfmiddlewaretoken': token,
+        })
+        self.assertNotEqual(response.status_code, 403)
+
+    # ------------------------------------------------------------------ #
+    # Profile update
+    # ------------------------------------------------------------------ #
+
+    def test_profile_post_without_csrf_returns_403(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('profile'), {
+            'first_name': 'Jane', 'last_name': 'Doe',
+            'email': 'jane@example.com',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_profile_post_with_csrf_succeeds(self):
+        self.client.force_login(self.user)
+        token = self._get_csrf_token(reverse('profile'))
+        response = self.client.post(reverse('profile'), {
+            'first_name': 'Jane', 'last_name': 'Doe',
+            'email': 'jane@example.com',
+            'csrfmiddlewaretoken': token,
+        })
+        self.assertNotEqual(response.status_code, 403)
+
+    # ------------------------------------------------------------------ #
+    # Password change
+    # ------------------------------------------------------------------ #
+
+    def test_password_change_post_without_csrf_returns_403(self):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('password_change'), {
+            'old_password': 'Password123!',
+            'new_password1': 'NewPass456!',
+            'new_password2': 'NewPass456!',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_password_change_post_with_csrf_succeeds(self):
+        self.client.force_login(self.user)
+        token = self._get_csrf_token(reverse('password_change'))
+        response = self.client.post(reverse('password_change'), {
+            'old_password': 'Password123!',
+            'new_password1': 'NewPass456!',
+            'new_password2': 'NewPass456!',
+            'csrfmiddlewaretoken': token,
+        })
+        self.assertNotEqual(response.status_code, 403)
+
+    # ------------------------------------------------------------------ #
+    # Password reset request
+    # ------------------------------------------------------------------ #
+
+    def test_password_reset_post_without_csrf_returns_403(self):
+        response = self.client.post(reverse('password_reset'), {
+            'email': 'csrf@example.com',
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_password_reset_post_with_csrf_succeeds(self):
+        token = self._get_csrf_token(reverse('password_reset'))
+        response = self.client.post(reverse('password_reset'), {
+            'email': 'csrf@example.com',
+            'csrfmiddlewaretoken': token,
+        })
+        self.assertNotEqual(response.status_code, 403)
+
+class UASAuthTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.register_url = reverse('register')
+        self.login_url = reverse('login')
+        self.logout_url = reverse('logout')
+        self.profile_url = reverse('profile')
+        self.dashboard_url = reverse('dashboard')
+        self.user_data = {
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'Password123!',
+            'password_confirm': 'Password123!'
+        }
+
+    def test_registration_flow(self):
+        response = self.client.get(self.register_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'apophia/register.html')
+
+        response = self.client.post(self.register_url, {
+            'username': 'newuser',
+            'email': 'new@example.com',
+            'password1': 'Password123!',
+            'password2': 'Password123!'
+        })
+        self.assertRedirects(response, self.login_url)
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+        
+        user = User.objects.get(username='newuser')
+        self.assertTrue(hasattr(user, 'profile'))
+
+    def test_login_logout_flow(self):
+        user = User.objects.create_user(username='testuser', password='Password123!')
+        
+        response = self.client.post(self.login_url, {
+            'username': 'testuser',
+            'password': 'Password123!'
+        })
+        self.assertRedirects(response, self.dashboard_url)
+
+        response = self.client.post(self.logout_url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_protected_areas(self):
+        response = self.client.get(self.profile_url)
+        self.assertRedirects(response, f"{self.login_url}?next={self.profile_url}")
+
+        response = self.client.get(self.dashboard_url)
+        self.assertRedirects(response, f"{self.login_url}?next={self.dashboard_url}")
+
+    def test_profile_update(self):
+        user = User.objects.create_user(username='updateuser', password='Password123!')
+        self.client.login(username='updateuser', password='Password123!')
+        
+        response = self.client.post(self.profile_url, {
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'email': 'john@example.com',
+            'bio': 'Test bio',
+            'location': 'Test City',
+            'birth_date': '1990-01-01'
+        })
+        self.assertRedirects(response, self.profile_url)
+        
+        user.refresh_from_db()
+        self.assertEqual(user.first_name, 'John')
+        self.assertEqual(user.profile.location, 'Test City')
+
+class RBACAccessTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.staff_user = User.objects.create_user(username='staffadmin', password='Password123!', is_staff=True)
+        self.regular_user = User.objects.create_user(username='regularuser', password='Password123!', is_staff=False)
+        self.staff_dir_url = reverse('staff_directory')
+        self.login_url = reverse('login')
+
+    def test_anonymous_access_staff_directory(self):
+        # Anonymous users should be redirected to login
+        response = self.client.get(self.staff_dir_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(self.login_url, response.url)
+
+    def test_regular_user_access_staff_directory(self):
+        # Authenticated non-staff users should be denied (redirected to login or shown 302 by user_passes_test)
+        self.client.login(username='regularuser', password='Password123!')
+        response = self.client.get(self.staff_dir_url)
+        self.assertEqual(response.status_code, 302) # user_passes_test redirects by default
+
+    def test_staff_user_access_staff_directory(self):
+        # Staff users should have access
+        self.client.login(username='staffadmin', password='Password123!')
+        response = self.client.get(self.staff_dir_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'apophia/staff_directory.html')
+        self.assertContains(response, 'regularuser')
+        self.assertContains(response, 'staffadmin')
+
+class IDORAccessTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user1 = User.objects.create_user(username='user1', password='Password123!')
+        self.user2 = User.objects.create_user(username='user2', password='Password123!')
+        self.staff_user = User.objects.create_user(username='staffuser', password='Password123!', is_staff=True)
+        self.user1_profile_url = reverse('profile_detail', kwargs={'username': 'user1'})
+        self.user2_profile_url = reverse('profile_detail', kwargs={'username': 'user2'})
+
+    def test_view_own_profile_detail(self):
+        self.client.login(username='user1', password='Password123!')
+        response = self.client.get(self.user1_profile_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Update Profile')
+
+    def test_view_other_profile_detail_denied(self):
+        # user1 trying to view user2's profile should get 403
+        self.client.login(username='user1', password='Password123!')
+        response = self.client.get(self.user2_profile_url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_staff_view_other_profile_detail_allowed(self):
+        # staff should be able to view user1's profile
+        self.client.login(username='staffuser', password='Password123!')
+        response = self.client.get(self.user1_profile_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Update Profile') # But not edit it
+        self.assertContains(response, 'viewing this profile as a staff member')
+
+    def test_modify_other_profile_detail_denied(self):
+        # staff (or any user) trying to POST to someone else's profile should get 403
+        self.client.login(username='staffuser', password='Password123!')
+        response = self.client.post(self.user1_profile_url, {
+            'first_name': 'Hacker',
+            'last_name': 'Admin'
+        })
+        self.assertEqual(response.status_code, 403)
+        
+        # Verify user1 was NOT updated
+        self.user1.refresh_from_db()
+        self.assertNotEqual(self.user1.first_name, 'Hacker')
+
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='resetuser', email='reset@example.com', password='Password123!')
+        self.reset_url = reverse('password_reset')
+        self.reset_done_url = reverse('password_reset_done')
+
+    def test_password_reset_request_view(self):
+        response = self.client.get(self.reset_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'apophia/password_reset_form.html')
+
+    def test_password_reset_submission_success(self):
+        # Submitting an existing email
+        response = self.client.post(self.reset_url, {'email': 'reset@example.com'})
+        self.assertRedirects(response, self.reset_done_url)
+        
+        # Submitting a non-existent email (Anti-Enumeration check)
+        response = self.client.post(self.reset_url, {'email': 'nonexistent@example.com'})
+        self.assertRedirects(response, self.reset_done_url) # Should redirect same way
+
+    def test_password_reset_confirm_invalid_token(self):
+        confirm_url = reverse('password_reset_confirm', kwargs={'uidb64': 'invalid', 'token': 'invalid'})
+        response = self.client.get(confirm_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Invalid Reset Link')
+
+class BruteForceTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='victim', password='Password123!')
+        self.login_url = reverse('login')
+
+    def test_brute_force_lockout(self):
+        # Attempt login 5 times with wrong password
+        for _ in range(5):
+            response = self.client.post(self.login_url, {
+                'username': 'victim',
+                'password': 'wrongpassword'
+            }, follow=True)
+            self.assertContains(response, 'Please enter a correct username and password')
+
+        # 6th attempt should be locked out
+        response = self.client.post(self.login_url, {
+            'username': 'victim',
+            'password': 'Password123!' # Correct password this time
+        }, follow=True)
+        self.assertContains(response, 'Too many failed login attempts')
+        self.assertFalse(response.context['user'].is_authenticated)
+
+    def test_lockout_separation_by_username(self):
+        # Fail 5 times for 'userA'
+        for _ in range(5):
+            self.client.post(self.login_url, {'username': 'userA', 'password': 'wrong'})
+        
+        # 'userB' should still be able to log in from the same IP (simplified test logic)
+        User.objects.create_user(username='userB', password='Password123!')
+        response = self.client.post(self.login_url, {
+            'username': 'userB',
+            'password': 'Password123!'
+        }, follow=True)
+        self.assertTrue(response.context['user'].is_authenticated)
+
+
+class OpenRedirectTests(TestCase):
+    """Verifies that malicious `next` parameters are rejected on login."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='redirectuser', password='Password123!')
+        self.login_url = reverse('login')
+        self.dashboard_url = reverse('dashboard')
+        self.profile_url = reverse('profile')
+
+    def _login_with_next(self, next_param):
+        return self.client.post(
+            f"{self.login_url}?next={next_param}",
+            {'username': 'redirectuser', 'password': 'Password123!'},
+        )
+
+    def test_absolute_external_url_rejected(self):
+        """Attacker supplies https://attacker.com — must land on dashboard."""
+        response = self._login_with_next('https://attacker.com')
+        self.assertRedirects(response, self.dashboard_url)
+
+    def test_protocol_relative_url_rejected(self):
+        """Attacker supplies //attacker.com — must land on dashboard."""
+        response = self._login_with_next('//attacker.com')
+        self.assertRedirects(response, self.dashboard_url)
+
+    def test_protocol_relative_url_with_path_rejected(self):
+        """Attacker supplies //attacker.com/phish — must land on dashboard."""
+        response = self._login_with_next('//attacker.com/phish')
+        self.assertRedirects(response, self.dashboard_url)
+
+    def test_javascript_url_rejected(self):
+        """Attacker supplies javascript:alert(1) — must land on dashboard."""
+        response = self._login_with_next('javascript:alert(1)')
+        self.assertRedirects(response, self.dashboard_url)
+
+    def test_data_url_rejected(self):
+        """Attacker supplies data: URI — must land on dashboard."""
+        response = self._login_with_next('data:text/html,<script>alert(1)</script>')
+        self.assertRedirects(response, self.dashboard_url)
+
+    def test_safe_relative_next_is_honoured(self):
+        """Legitimate ?next=/profile/ must be respected after login."""
+        response = self._login_with_next(self.profile_url)
+        self.assertRedirects(response, self.profile_url)
+
+    def test_empty_next_falls_back_to_dashboard(self):
+        """No next parameter should fall back to the default redirect."""
+        response = self._login_with_next('')
+        self.assertRedirects(response, self.dashboard_url)
+
+
+class XSSProtectionTests(TestCase):
+    """Verifies that stored XSS payloads in user profile fields cannot execute."""
+
+    XSS_PAYLOAD = '<script>alert("xss")</script>'
+
+    def setUp(self):
+        self.client = Client()
+        self.attacker = User.objects.create_user(
+            username='attacker', email='attacker@example.com', password='Password123!'
+        )
+        self.staff = User.objects.create_user(
+            username='staffviewer', email='staff@example.com', password='Password123!',
+            is_staff=True,
+        )
+
+    # ------------------------------------------------------------------ #
+    # Form-level: HTML tags are rejected before reaching the database
+    # ------------------------------------------------------------------ #
+
+    def test_xss_in_bio_is_rejected_by_form(self):
+        self.client.force_login(self.attacker)
+        original_bio = self.attacker.profile.bio
+        response = self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'attacker@example.com',
+            'bio': self.XSS_PAYLOAD,
+            'location': '',
+        })
+        # Form error — page re-rendered, no redirect
+        self.assertEqual(response.status_code, 200)
+        self.attacker.profile.refresh_from_db()
+        self.assertEqual(self.attacker.profile.bio, original_bio)
+
+    def test_xss_in_location_is_rejected_by_form(self):
+        self.client.force_login(self.attacker)
+        original_location = self.attacker.profile.location
+        response = self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'attacker@example.com',
+            'bio': '',
+            'location': self.XSS_PAYLOAD,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.attacker.profile.refresh_from_db()
+        self.assertEqual(self.attacker.profile.location, original_location)
+
+    # ------------------------------------------------------------------ #
+    # Template-level: even if payload reaches the DB it is escaped on render
+    # ------------------------------------------------------------------ #
+
+    def test_stored_xss_in_location_is_escaped_in_staff_directory(self):
+        # Write the payload directly to bypass form validation (simulates
+        # data inserted before this fix, or via the admin/shell).
+        self.attacker.profile.location = self.XSS_PAYLOAD
+        self.attacker.profile.save()
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse('staff_directory'))
+        self.assertEqual(response.status_code, 200)
+        # Raw tag must not appear in the rendered HTML
+        self.assertNotContains(response, '<script>alert("xss")</script>')
+        # Escaped representation should appear instead
+        self.assertContains(response, '&lt;script&gt;alert')
+
+    # ------------------------------------------------------------------ #
+    # Removing |safe from help_text must not break password hint rendering
+    # ------------------------------------------------------------------ #
+
+    def test_password_validators_help_text_still_renders_as_html(self):
+        # Django's built-in password1 help_text is a SafeString produced by
+        # password_validators_help_text_html(). Removing |safe from the
+        # template does NOT cause double-escaping because Django's template
+        # engine already treats SafeStrings as trusted.
+        response = self.client.get(reverse('register'))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # The password validator list is rendered as an HTML list, not escaped text
+        self.assertIn('<ul>', content)
+        self.assertNotIn('&lt;ul&gt;', content)
+
+
+class AuditLoggingTests(TestCase):
+    """Verifies that security-relevant events are logged and secrets are never logged."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='audituser', email='audit@example.com', password='Password123!'
+        )
+
+    # ------------------------------------------------------------------ #
+    # Registration
+    # ------------------------------------------------------------------ #
+
+    def test_registration_is_logged(self):
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(reverse('register'), {
+                'username': 'newaudituser',
+                'email': 'newaudit@example.com',
+                'password1': 'Password123!',
+                'password2': 'Password123!',
+            })
+        self.assertTrue(
+            any('event=registration' in msg and 'newaudituser' in msg for msg in cm.output)
+        )
+
+    # ------------------------------------------------------------------ #
+    # Login
+    # ------------------------------------------------------------------ #
+
+    def test_login_success_is_logged(self):
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(reverse('login'), {
+                'username': 'audituser',
+                'password': 'Password123!',
+            })
+        self.assertTrue(
+            any('event=login' in msg and 'status=success' in msg and 'audituser' in msg
+                for msg in cm.output)
+        )
+
+    def test_login_failure_is_logged(self):
+        with self.assertLogs('apophia.audit', level='WARNING') as cm:
+            self.client.post(reverse('login'), {
+                'username': 'audituser',
+                'password': 'wrongpassword',
+            })
+        self.assertTrue(
+            any('event=login' in msg and 'status=failure' in msg and 'audituser' in msg
+                for msg in cm.output)
+        )
+
+    def test_login_lockout_is_logged(self):
+        # Seed 5 recent failures to trigger the lockout path immediately
+        for _ in range(5):
+            LoginAttempt.objects.create(username='audituser', ip_address='127.0.0.1')
+        with self.assertLogs('apophia.audit', level='WARNING') as cm:
+            self.client.post(reverse('login'), {
+                'username': 'audituser',
+                'password': 'Password123!',
+            })
+        self.assertTrue(
+            any('event=login' in msg and 'status=locked_out' in msg for msg in cm.output)
+        )
+
+    # ------------------------------------------------------------------ #
+    # Logout
+    # ------------------------------------------------------------------ #
+
+    def test_logout_is_logged(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(reverse('logout'))
+        self.assertTrue(
+            any('event=logout' in msg and 'audituser' in msg for msg in cm.output)
+        )
+
+    # ------------------------------------------------------------------ #
+    # Password change
+    # ------------------------------------------------------------------ #
+
+    def test_password_change_is_logged(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(reverse('password_change'), {
+                'old_password': 'Password123!',
+                'new_password1': 'NewPass456!',
+                'new_password2': 'NewPass456!',
+            })
+        self.assertTrue(
+            any('event=password_change' in msg and 'status=success' in msg for msg in cm.output)
+        )
+
+    # ------------------------------------------------------------------ #
+    # Password reset
+    # ------------------------------------------------------------------ #
+
+    def test_password_reset_requested_is_logged(self):
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(reverse('password_reset'), {'email': 'audit@example.com'})
+        self.assertTrue(
+            any('event=password_reset_requested' in msg for msg in cm.output)
+        )
+
+    def test_password_reset_complete_is_logged(self):
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+        confirm_url = reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token})
+        # GET establishes the session and redirects to the set-password URL
+        self.client.get(confirm_url)
+        set_password_url = reverse(
+            'password_reset_confirm', kwargs={'uidb64': uid, 'token': 'set-password'}
+        )
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(set_password_url, {
+                'new_password1': 'NewPassword456!',
+                'new_password2': 'NewPassword456!',
+            })
+        self.assertTrue(
+            any('event=password_reset_complete' in msg for msg in cm.output)
+        )
+
+    # ------------------------------------------------------------------ #
+    # Sensitive data must never appear in logs
+    # ------------------------------------------------------------------ #
+
+    def test_passwords_not_in_logs(self):
+        with self.assertLogs('apophia.audit', level='INFO') as cm:
+            self.client.post(reverse('login'), {
+                'username': 'audituser',
+                'password': 'Password123!',
+            })
+        all_logs = '\n'.join(cm.output)
+        self.assertNotIn('Password123!', all_logs)
+
+
+class SecurityHeadersTests(TestCase):
+    """Verifies that every response carries the required security headers."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='headeruser', password='Password123!')
+
+    def _get(self, url):
+        return self.client.get(url)
+
+    def _assert_headers(self, response):
+        # Content-Security-Policy
+        csp = response.get('Content-Security-Policy', '')
+        self.assertIn("default-src 'self'", csp)
+        self.assertIn("script-src 'self'", csp)
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertIn("form-action 'self'", csp)
+        self.assertIn("base-uri 'self'", csp)
+
+        # X-Content-Type-Options
+        self.assertEqual(response.get('X-Content-Type-Options'), 'nosniff')
+
+        # X-Frame-Options
+        self.assertEqual(response.get('X-Frame-Options'), 'DENY')
+
+        # Referrer-Policy
+        self.assertEqual(
+            response.get('Referrer-Policy'),
+            'strict-origin-when-cross-origin',
+        )
+
+        # Cross-Origin-Opener-Policy
+        self.assertEqual(
+            response.get('Cross-Origin-Opener-Policy'),
+            'same-origin',
+        )
+
+    def test_headers_on_public_page(self):
+        self._assert_headers(self._get(reverse('login')))
+
+    def test_headers_on_authenticated_page(self):
+        self.client.login(username='headeruser', password='Password123!')
+        self._assert_headers(self._get(reverse('dashboard')))
+
+    def test_headers_on_register_page(self):
+        self._assert_headers(self._get(reverse('register')))
+
+    def test_session_cookie_is_httponly(self):
+        # Capture the response directly — self.client.cookies re-parses Set-Cookie
+        # headers and loses the HttpOnly flag; response.cookies preserves it.
+        response = self.client.post(reverse('login'), {
+            'username': 'headeruser', 'password': 'Password123!'
+        })
+        session_cookie = response.cookies.get('sessionid')
+        self.assertIsNotNone(session_cookie)
+        self.assertIn('HttpOnly', session_cookie.output())
+
+    def test_csrf_cookie_is_httponly(self):
+        response = self.client.get(reverse('login'))
+        csrf_cookie = response.cookies.get('csrftoken')
+        self.assertIsNotNone(csrf_cookie)
+        self.assertIn('HttpOnly', csrf_cookie.output())
+
+
+# ------------------------------------------------------------------ #
+# File upload security tests
+# ------------------------------------------------------------------ #
+
+def _make_png_bytes():
+    """Create a minimal valid PNG in memory using Pillow."""
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new('RGB', (10, 10), color=(200, 100, 50)).save(buf, format='PNG')
+    return buf.getvalue()
+
+
+def _make_pdf_bytes():
+    return b'%PDF-1.4 minimal test document'
+
+
+def _make_txt_bytes():
+    return 'Hello, this is a UTF-8 text file.\n'.encode('utf-8')
+
+
+# Temporary directories created once for the entire class and cleaned up after.
+_TEMP_MEDIA = tempfile.mkdtemp()
+_TEMP_PRIVATE = tempfile.mkdtemp()
+
+
+@override_settings(
+    MEDIA_ROOT=_TEMP_MEDIA,
+    PRIVATE_STORAGE_ROOT=Path(_TEMP_PRIVATE),
+)
+class FileUploadSecurityTests(TestCase):
+    """
+    Verifies upload validation, file-type enforcement, size limits,
+    access control (IDOR prevention), and correct download headers.
+
+    override_settings redirects both MEDIA_ROOT (avatars) and
+    PRIVATE_STORAGE_ROOT (documents) to throwaway temp directories so
+    tests never touch the real media folders.
+    """
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(_TEMP_MEDIA, ignore_errors=True)
+        shutil.rmtree(_TEMP_PRIVATE, ignore_errors=True)
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='uploader', email='upload@example.com', password='Password123!'
+        )
+        self.other_user = User.objects.create_user(
+            username='other', email='other@example.com', password='Password123!'
+        )
+
+    # ------------------------------------------------------------------ #
+    # Avatar — valid upload
+    # ------------------------------------------------------------------ #
+
+    def test_valid_png_avatar_accepted(self):
+        upload = SimpleUploadedFile('avatar.png', _make_png_bytes(), content_type='image/png')
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'upload@example.com',
+            'bio': '', 'location': '',
+            'avatar': upload,
+        })
+        self.assertRedirects(response, reverse('profile'))
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.avatar)
+
+    # ------------------------------------------------------------------ #
+    # Avatar — extension whitelist
+    # ------------------------------------------------------------------ #
+
+    def test_avatar_disallowed_extension_rejected(self):
+        upload = SimpleUploadedFile('malware.exe', b'MZ\x90\x00', content_type='application/octet-stream')
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'upload@example.com',
+            'bio': '', 'location': '',
+            'avatar': upload,
+        })
+        # Form error — stays on profile page (no redirect)
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertFalse(self.user.profile.avatar)
+
+    # ------------------------------------------------------------------ #
+    # Avatar — content spoofing (wrong content under a .png extension)
+    # ------------------------------------------------------------------ #
+
+    def test_avatar_fake_content_rejected(self):
+        upload = SimpleUploadedFile(
+            'not_really.png', b'\x00\x01\x02 definitely not an image',
+            content_type='image/png',
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'upload@example.com',
+            'bio': '', 'location': '',
+            'avatar': upload,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertFalse(self.user.profile.avatar)
+
+    # ------------------------------------------------------------------ #
+    # Avatar — size limit (> 2 MB)
+    # ------------------------------------------------------------------ #
+
+    def test_avatar_over_size_limit_rejected(self):
+        big_content = b'A' * (2 * 1024 * 1024 + 1)   # 2 MB + 1 byte
+        upload = SimpleUploadedFile('big.png', big_content, content_type='image/png')
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'upload@example.com',
+            'bio': '', 'location': '',
+            'avatar': upload,
+        })
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertFalse(self.user.profile.avatar)
+
+    # ------------------------------------------------------------------ #
+    # Avatar — stored filename is randomised (UUID), not the original name
+    # ------------------------------------------------------------------ #
+
+    def test_avatar_filename_is_randomised(self):
+        upload = SimpleUploadedFile('my_photo.png', _make_png_bytes(), content_type='image/png')
+        self.client.force_login(self.user)
+        self.client.post(reverse('profile'), {
+            'first_name': '', 'last_name': '', 'email': 'upload@example.com',
+            'bio': '', 'location': '',
+            'avatar': upload,
+        })
+        self.user.profile.refresh_from_db()
+        stored_name = self.user.profile.avatar.name
+        self.assertNotIn('my_photo', stored_name)
+        self.assertTrue(stored_name.startswith('avatars/'))
+
+    # ------------------------------------------------------------------ #
+    # Document — valid PDF upload
+    # ------------------------------------------------------------------ #
+
+    def test_valid_pdf_document_accepted(self):
+        upload = SimpleUploadedFile('report.pdf', _make_pdf_bytes(), content_type='application/pdf')
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('document_upload'), {'file': upload})
+        self.assertRedirects(response, reverse('profile'))
+        self.assertEqual(Document.objects.filter(user=self.user).count(), 1)
+        doc = Document.objects.get(user=self.user)
+        self.assertEqual(doc.original_filename, 'report.pdf')
+
+    # ------------------------------------------------------------------ #
+    # Document — valid TXT upload
+    # ------------------------------------------------------------------ #
+
+    def test_valid_txt_document_accepted(self):
+        upload = SimpleUploadedFile('notes.txt', _make_txt_bytes(), content_type='text/plain')
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('document_upload'), {'file': upload})
+        self.assertRedirects(response, reverse('profile'))
+        self.assertEqual(Document.objects.filter(user=self.user).count(), 1)
+
+    # ------------------------------------------------------------------ #
+    # Document — extension whitelist
+    # ------------------------------------------------------------------ #
+
+    def test_document_disallowed_extension_rejected(self):
+        upload = SimpleUploadedFile('script.sh', b'#!/bin/bash\nrm -rf /', content_type='text/plain')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        self.assertEqual(Document.objects.filter(user=self.user).count(), 0)
+
+    def test_document_html_extension_rejected(self):
+        upload = SimpleUploadedFile('page.html', b'<script>alert(1)</script>', content_type='text/html')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        self.assertEqual(Document.objects.filter(user=self.user).count(), 0)
+
+    # ------------------------------------------------------------------ #
+    # Document — content spoofing (PDF extension, wrong magic bytes)
+    # ------------------------------------------------------------------ #
+
+    def test_document_fake_pdf_rejected(self):
+        upload = SimpleUploadedFile('fake.pdf', b'Not a real PDF', content_type='application/pdf')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        self.assertEqual(Document.objects.filter(user=self.user).count(), 0)
+
+    # ------------------------------------------------------------------ #
+    # Document — size limit (> 5 MB)
+    # ------------------------------------------------------------------ #
+
+    def test_document_over_size_limit_rejected(self):
+        big_content = b'%PDF' + b'x' * (5 * 1024 * 1024)   # just over 5 MB
+        upload = SimpleUploadedFile('big.pdf', big_content, content_type='application/pdf')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        self.assertEqual(Document.objects.filter(user=self.user).count(), 0)
+
+    # ------------------------------------------------------------------ #
+    # Document — stored filename is randomised
+    # ------------------------------------------------------------------ #
+
+    def test_document_filename_is_randomised(self):
+        upload = SimpleUploadedFile('secret_name.pdf', _make_pdf_bytes(), content_type='application/pdf')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        doc = Document.objects.get(user=self.user)
+        self.assertNotIn('secret_name', doc.file.name)
+        self.assertEqual(doc.original_filename, 'secret_name.pdf')
+
+    # ------------------------------------------------------------------ #
+    # Document download — requires authentication
+    # ------------------------------------------------------------------ #
+
+    def test_document_download_requires_login(self):
+        response = self.client.get(reverse('document_download', kwargs={'pk': 9999}))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('login', response.url)
+
+    # ------------------------------------------------------------------ #
+    # Document download — IDOR prevention (user A cannot fetch user B's file)
+    # ------------------------------------------------------------------ #
+
+    def test_document_idor_prevented(self):
+        # Upload a document as self.user
+        upload = SimpleUploadedFile('private.pdf', _make_pdf_bytes(), content_type='application/pdf')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        doc = Document.objects.get(user=self.user)
+
+        # other_user tries to download it
+        self.client.force_login(self.other_user)
+        response = self.client.get(reverse('document_download', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 404)
+
+    # ------------------------------------------------------------------ #
+    # Document download — security headers on the response
+    # ------------------------------------------------------------------ #
+
+    def test_document_download_has_secure_headers(self):
+        upload = SimpleUploadedFile('report.pdf', _make_pdf_bytes(), content_type='application/pdf')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        doc = Document.objects.get(user=self.user)
+
+        response = self.client.get(reverse('document_download', kwargs={'pk': doc.pk}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/octet-stream')
+        self.assertEqual(response['X-Content-Type-Options'], 'nosniff')
+        self.assertIn('attachment', response.get('Content-Disposition', ''))
+
+    # ------------------------------------------------------------------ #
+    # Document delete — removes the physical file
+    # ------------------------------------------------------------------ #
+
+    def test_document_delete_removes_file(self):
+        upload = SimpleUploadedFile('to_delete.pdf', _make_pdf_bytes(), content_type='application/pdf')
+        self.client.force_login(self.user)
+        self.client.post(reverse('document_upload'), {'file': upload})
+        doc = Document.objects.get(user=self.user)
+        file_path = doc.file.path
+
+        self.client.post(reverse('document_delete', kwargs={'pk': doc.pk}))
+        self.assertFalse(Document.objects.filter(pk=doc.pk).exists())
+        self.assertFalse(Path(file_path).exists())
